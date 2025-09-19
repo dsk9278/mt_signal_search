@@ -1,0 +1,2 @@
+﻿signal_id,signal_type,description,from_box,via_boxes,to_box,program_address,logic_group,logic_expr
+Q3B0,OUTPUT,右内タンピングユニット下降,BOX3,"BOX5,BOX6",BOX7,Q3B0,ロジック2,04E^351^383^3BD^((065^354)v038)

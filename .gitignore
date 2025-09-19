@@ -5,6 +5,7 @@ __pycache__/
 *.pyd
 
 # 仮想環境
+mt_signal_env/
 .venv/
 venv/
 env/

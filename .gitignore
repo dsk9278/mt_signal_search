@@ -1,0 +1,21 @@
+# Pythonキャッシュ
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# 仮想環境
+.venv/
+venv/
+env/
+
+# IDEやエディタ設定
+.vscode/
+.idea/
+
+# Macの余計なファイル
+.DS_Store
+
+# ローカルDBや一時ファイル
+*.db
+*.sqlite

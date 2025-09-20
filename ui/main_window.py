@@ -10,6 +10,7 @@ from mt_signal_search.ui.components.floating_menu import FloatingMenu
 from mt_signal_search.ui.components.gear_button import FloatingGearButton
 from mt_signal_search.io_importers.csv_importers import CSVSignalImporter, CSVBoxConnImporter
 from mt_signal_search.io_importers.pdf_importers import SimplePDFProcessor, BoxPDFProcessor
+from mt_signal_search.ui.dialogs.edit_signal_dialog import EditSignalDialog
 import csv
 
 class MainWindow(QMainWindow):
@@ -47,7 +48,7 @@ class MainWindow(QMainWindow):
         self._place_fab()
 
         # ドロップダウンメニューの動作
-        self.fab_menu.btn_edit.clicked.connect(self._add_signal_via_gui)
+        self.fab_menu.btn_edit.clicked.connect(self._open_edit_signal_dialog)
         self.fab_menu.btn_save.clicked.connect(self._export_data)
         self.fab_menu.btn_fav.clicked.connect(self._show_favorites_dialog)
 
@@ -127,6 +128,66 @@ class MainWindow(QMainWindow):
                 if kw: self.search_component._perform_search()
             except Exception as e:
                 QMessageBox.critical(self, 'エラー', f'保存に失敗しました: {e}')
+
+    def _open_edit_signal_dialog(self):
+        """検索選択のプリセット付きで、信号の全項目（条件式含む）を編集/追加する"""
+        # 現在の選択から既存データを推測
+        existing = None
+        logic_expr = ""
+        selected_sid = None
+        try:
+            tbl = getattr(self.search_component, 'results_table', None)
+            if tbl is not None:
+                r = tbl.currentRow()
+                if r is not None and r >= 0:
+                    it = tbl.item(r, 0)
+                    if it:
+                        selected_sid = (it.text() or "").strip()
+        except Exception:
+            selected_sid = None
+
+        if selected_sid:
+            try:
+                existing = self._signal_repository.get_signal(selected_sid)
+            except Exception:
+                existing = None
+            try:
+                logic_expr = self.search_service.get_logic_expr(selected_sid) or ""
+            except Exception:
+                logic_expr = ""
+
+        dlg = EditSignalDialog(self, existing=existing, logic_expr=logic_expr)
+        if dlg.exec_() != QDialog.Accepted:
+            return
+        data = dlg.get_values()
+
+        # dict → SignalInfo へ変換
+        via = tuple([x.strip() for x in (data.get('via_boxes') or '').split(',') if x.strip()])
+        try:
+            st_enum = SignalType(data.get('signal_type') or 'INTERNAL')
+        except Exception:
+            st_enum = SignalType.INTERNAL
+        info = SignalInfo(
+            data.get('signal_id'), st_enum,
+            data.get('description'), data.get('from_box'), via,
+            data.get('to_box'), data.get('program_address') or data.get('signal_id'),
+            data.get('logic_group')
+        )
+
+        try:
+            # 信号メタのUPSERT
+            self._signal_repository.add_signal(info)
+            # 条件式の保存（入力があれば）
+            expr = data.get('logic_expr')
+            if expr:
+                self.search_service.set_logic_expr(info.signal_id, expr, source_label="(ui)")
+            QMessageBox.information(self, '保存', f"'{info.signal_id}' を保存しました。")
+            # 直前キーワードで再検索して即反映
+            kw = self.search_component.search_input.text().strip()
+            if kw:
+                self.search_component._perform_search()
+        except Exception as e:
+            QMessageBox.critical(self, 'エラー', f'保存に失敗しました: {e}')
 
     def _show_favorites_dialog(self):
         dlg = QDialog(self)

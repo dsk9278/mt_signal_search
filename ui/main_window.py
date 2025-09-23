@@ -124,8 +124,7 @@ class MainWindow(QMainWindow):
                 info = SignalInfo(sid, SignalType(stype), desc, fromb, via, tob, addr, grp)
                 self._signal_repository.add_signal(info)
                 QMessageBox.information(self, '保存', f"'{info.signal_id}' を保存しました。")
-                kw = self.search_component.search_input.text().strip()
-                if kw: self.search_component._perform_search()
+                self.search_component.refresh()
             except Exception as e:
                 QMessageBox.critical(self, 'エラー', f'保存に失敗しました: {e}')
 
@@ -183,9 +182,7 @@ class MainWindow(QMainWindow):
                 self.search_service.set_logic_expr(info.signal_id, expr, source_label="(ui)")
             QMessageBox.information(self, '保存', f"'{info.signal_id}' を保存しました。")
             # 直前キーワードで再検索して即反映
-            kw = self.search_component.search_input.text().strip()
-            if kw:
-                self.search_component._perform_search()
+            self.search_component.refresh()
         except Exception as e:
             QMessageBox.critical(self, 'エラー', f'保存に失敗しました: {e}')
 
@@ -241,8 +238,7 @@ class MainWindow(QMainWindow):
             if sig_count == 0 and box_count == 0:
                 QMessageBox.warning(self, "PDFインポート", "取り込めるデータが見つかりませんでした。"); return
 
-            kw = self.search_component.search_input.text().strip()
-            if kw: self.search_component._perform_search()
+            self.search_component.refresh()
             parts = []
             if sig_count: parts.append(f"信号 {sig_count} 件")
             if box_count: parts.append(f"BOX配線 {box_count} 件")
@@ -260,8 +256,7 @@ class MainWindow(QMainWindow):
             n = CSVSignalImporter(self._signal_repository).import_file(path)
             if n == 0:
                 QMessageBox.warning(self, "CSVインポート", "取り込めるレコードがありませんでした。"); return
-            kw = self.search_component.search_input.text().strip()
-            if kw: self.search_component._perform_search()
+            self.search_component.refresh()
             QMessageBox.information(self, "CSVインポート", f"信号 {n} 件を取り込みました。")
         except Exception as e:
             QMessageBox.critical(self, "エラー", f"CSV取り込みでエラー: {e}")

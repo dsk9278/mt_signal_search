@@ -1,23 +1,28 @@
 from PyQt5.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QLabel, QFrame, QPushButton, QLineEdit, QTableWidget, QTableWidgetItem,QHeaderView
 from PyQt5.QtCore import Qt
 from PyQt5.QtGui import QFont
+import re
+from html import escape
 
 def display_with_overline(expr: str) -> str:
+    """条件式中の'!'で始まるトークンを打ち消し線付きで表示
+    安全の為に先にHTMLエスケープし、演算子（^,v）などはそのまま残す。
+    例: "!501^503" → 501のみ上線つきで表示
+    """
     if not expr:
         return ""
-    parts = []
-    for tok in expr.split():
-        if tok.startswith("!"):
-            parts.append(f"<span style='text-decoration: overline;'>{tok[1:]}</span>")
-        else:
-            parts.append(tok)
-    return " ".join(parts)
+    safe = escape(expr)
+    def _repl(m):
+        token = m.group(1)
+        return f"<span style='text-decoration: overline;'>{token}</span>"
+    return re.sub(r"!(\w+)", _repl, safe)
 
 class SearchComponent(QWidget):
     """検索（大タイトル + ピル型検索バー + 結果テーブル From/Via/To）"""
     def __init__(self, search_service, parent=None):
         super().__init__(parent)
         self._search_service = search_service
+        self._last_keyword = "" #直近の検索キーワード
         self.setup_ui()
         self.connect_events()
 
@@ -46,6 +51,7 @@ class SearchComponent(QWidget):
         rf = QFont(); rf.setPointSize(16); rf.setBold(True); self.results_label.setFont(rf)
 
         self.results_table = QTableWidget()
+        self.results_table.setMinimumHeight(100)
         self.results_table.setColumnCount(7)
         self.results_table.setHorizontalHeaderLabels(["信号ID","種別","説明","From","Via","To","条件式"])
         header = self.results_table.horizontalHeader()
@@ -53,6 +59,8 @@ class SearchComponent(QWidget):
             header.setSectionResizeMode(i,QHeaderView.ResizeToContents)
         header.setSectionResizeMode(6,QHeaderView.Stretch)
         self.results_table.setWordWrap(True)
+        #　行の高さの変更
+        self.results_table.verticalHeader().setDefaultSectionSize(40)
         self.results_table.setStyleSheet("""
             QTableWidget { background-color: white; border: 1px solid #ddd; border-radius: 8px; gridline-color: #eee; }
             QTableWidget::item { padding: 8px; }
@@ -72,8 +80,17 @@ class SearchComponent(QWidget):
 
     def _perform_search(self) -> None:
         kw = self.search_input.text().strip()
-        if not kw: return
+        if not kw:
+            return
+        self._last_keyword = kw
         results = self._search_service.search_signals(kw)
+        self._display_results(results)
+
+    def refresh(self) -> None:
+        """直近の検索キーワードで再検索"""
+        if not self._last_keyword:
+            return
+        results = self._search_service.search_signals(self._last_keyword)
         self._display_results(results)
 
     def _display_results(self, results) -> None:
@@ -81,17 +98,28 @@ class SearchComponent(QWidget):
         for row, s in enumerate(results):
             self.results_table.setItem(row, 0, QTableWidgetItem(s.signal_id))
             self.results_table.setItem(row, 1, QTableWidgetItem(s.signal_type.value))
-            self.results_table.setItem(row, 2, QTableWidgetItem(s.description))
-            self.results_table.setItem(row, 3, QTableWidgetItem(s.from_box))
-            self.results_table.setItem(row, 4, QTableWidgetItem(", ".join(s.via_boxes)))
-            self.results_table.setItem(row, 5, QTableWidgetItem(s.to_box))
+            self.results_table.setItem(row, 2, QTableWidgetItem(s.description or ""))
+            self.results_table.setItem(row, 3, QTableWidgetItem(s.from_box or ""))
+            self.results_table.setItem(row, 4, QTableWidgetItem(", ".join(s.via_boxes or [])))
+            self.results_table.setItem(row, 5, QTableWidgetItem(s.to_box or ""))
             expr = self._search_service.get_logic_expr(s.signal_id) or ""
             label = self._search_service.get_source_label(s.signal_id) or ""
-            text = f"{display_with_overline(expr)}<br><span style='color: gray; font-size: 10px;'>(出所: {label})</span>"if label else display_with_overline(expr)
+            label_safe = escape(label)
+            text_base = display_with_overline(expr)
+            text = (
+                f"{text_base}<br><span style= 'color: glay; font-size: 10px;'>(出所: {label_safe})</span>"
+                if label else text_base
+            )
             lab = QLabel(text)
             lab.setTextFormat(Qt.RichText)
             lab.setTextInteractionFlags(Qt.TextSelectableByMouse)
             lab.setWordWrap(True)
             self.results_table.setCellWidget(row, 6, lab) 
         self.results_table.resizeRowsToContents()
+        #各行の高さが出所ラベルを収めるのに十分になるよう調整
+        vh = self.results_table.verticalHeader()
+        for row in range(self.results_table.rowCount()):
+            current_height = self.results_table.rowHeight(row)
+            if current_height < 60:
+                self.results_table.setRowHeight(row, 60)
         self.results_label.setText(f"検索結果リスト ({len(results)}件)")

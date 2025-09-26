@@ -3,6 +3,7 @@ from typing import List, Optional
 from mt_signal_search.domain.models import SignalInfo, SignalType, BoxConnection
 from mt_signal_search.repositories.base import SignalRepository
 
+#baseのSignalRepositoryを継承している（中身がないとこれを呼び出すことができない）このファイルでSQLを実行する。
 class SQLiteSignalRepository(SignalRepository):
     def __init__(self, db_path: str = "signal_database.db"):
         self.db_path = db_path

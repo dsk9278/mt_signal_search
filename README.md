@@ -76,3 +76,13 @@ Q3B0,OUTPUT,右内タンピングユニット下降,BOX3,"BOX5,BOX6",BOX7,Q3B0,�
 ライセンス
 
 このアプリは個人学習・業務効率化のために開発しています。
+
+base.pyとsqlite_impl.pyを分けた理由（9.26）
+1.	疎結合
+	•	CSV Importer や UI は「repo.add_signal(signal)」としか書かない。
+	•	SQLite 以外の実装（例：PostgreSQL版、メモリDB版）に差し替えても、呼び出しコードは一切変えなくてよい。
+	2.	テストしやすい
+	•	テスト用に「SQLiteじゃなくてInMemoryRepository」を用意して差し替えるだけでユニットテスト可能。
+	3.	役割がはっきり分かれる
+	•	base = できること一覧（契約）
+	•	sqlite_impl = 実際の処理（契約を守る中身）

@@ -2,6 +2,7 @@ from abc import ABC, abstractmethod
 from typing import List, Optional
 from mt_signal_search.domain.models import SignalInfo, BoxConnection
 
+#ここを通してデータベースに要求を出す
 class SignalRepository(ABC):
     @abstractmethod
     def add_signal(self, signal: SignalInfo) -> None: ...

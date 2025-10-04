@@ -7,10 +7,11 @@
 
 from PyQt5.QtWidgets import (
     QMainWindow, QWidget, QVBoxLayout, QFileDialog, QMessageBox, QDialog, QFormLayout,
-    QLineEdit, QComboBox, QHBoxLayout, QPushButton, QListWidget, QListWidgetItem, QLabel, QProgressDialog, QVBoxLayout
+    QLineEdit, QComboBox, QHBoxLayout, QPushButton, QListWidget, QListWidgetItem, QLabel, QProgressDialog
 )
-from PyQt5.QtGui import QFont
-from PyQt5.QtCore import QThread
+from PyQt5.QtGui import QFont, QDesktopServices
+from PyQt5.QtCore import QThread, QUrl
+from pytesseract.pytesseract import LANG_PATTERN
 from mt_signal_search.domain.models import SignalInfo, SignalType
 from mt_signal_search.ui.components.search_component import SearchComponent
 from mt_signal_search.ui.components.logic_display import LogicDisplayComponent
@@ -205,7 +206,6 @@ class MainWindow(QMainWindow):
         dlg = QDialog(self)
         dlg.setWindowTitle("お気に入り")
         dlg.setMinimumWidth(360)
-        from PyQt5.QtWidgets import QVBoxLayout
         lay = QVBoxLayout(dlg)
         lst = QListWidget()
         favs = self.favorites_service.get_favorites()
@@ -253,7 +253,27 @@ class MainWindow(QMainWindow):
         worker.canceled.connect(thread.quit)
 
     def _on_worker_report(self, summary: str, log_path: str):
-        QMessageBox.information(self, '取り込みレポート', f"{summary}\n\nログ: {log_path}")
+        #　取り込み後の警告メッセージ
+        box = QMessageBox(self)
+        box.setIcon(QMessageBox.Information)
+        box.setWindowTitle('取り込みレポート')
+        box.setText(summary or 'レポート')
+
+        open_btn = None
+        if log_path:
+            box.setInformativeText(f"ログ: {log_path}")
+            # QMessageBoxのボタンは　add Buttonで追加する
+            open_btn = box.addButton('ログを開く', QMessageBox.ActionRole)
+        ok_btn = box.addButton(QMessageBox.Ok)
+        box.exec_()
+        
+        #ログを開くボタンが押されたら　OS 既定アプリで開く
+        try:
+            if log_path and open_btn is not None and box.clickedButton() == open_btn:
+                QDesktopServices.openUrl(QUrl.fromLocalFile(log_path))
+        except Exception:
+            #開けなくてもアプリを落とさない
+            pass
 
     def _on_worker_error(self, tb: str):
         QMessageBox.critical(self, 'エラー', tb)
@@ -314,7 +334,13 @@ class MainWindow(QMainWindow):
         path, _ = QFileDialog.getOpenFileName(self, 'PDFファイルを選択', '', 'PDF Files (*.pdf)')
         if not path:
             return
-        try: # ワーカーはスレッド内で SQLite を開くため、DB パスが必要
+
+    # ★ 同時起動ガード
+        if getattr(self, "_current_worker", None):
+            QMessageBox.warning(self, "実行中", "処理中の取り込みが完了するまでお待ちください。")
+            return
+
+        try:
             db_path = self._ensure_repo_db_path()
         except Exception as e:
             QMessageBox.critical(self, 'エラー', str(e))
@@ -324,9 +350,13 @@ class MainWindow(QMainWindow):
         worker = ImportPDFWorker(db_path=db_path, pdf_path=path)
         worker.moveToThread(thread)
         thread.started.connect(worker.run)
+
+    # ★ 後始末（Qtに管理させる）
+        thread.finished.connect(worker.deleteLater)
+        thread.finished.connect(thread.deleteLater)
+
         self._connect_common_worker_signals(worker, thread, title='PDF取り込み中', label='PDF を解析しています…')
 
-        # 完了シグナル：取り込んだ件数を表示し、そのまま検索結果を再描画
         def _pdf_finished(sigs: int, boxes: int):
             parts = []
             if sigs:
@@ -338,17 +368,29 @@ class MainWindow(QMainWindow):
             else:
                 QMessageBox.warning(self, 'PDFインポート', '取り込めるデータが見つかりませんでした。')
             self.search_component.refresh()
+        # ★ 参照を解除（同時起動ガードの解除）
+            self._current_worker = None
+            self._current_thread = None
         worker.finished.connect(_pdf_finished)
 
-        # 参照保持（GC対策）
+    # ★ スレッド完全終了時にも保険で解除
+        thread.finished.connect(lambda: setattr(self, '_current_worker', None))
+        thread.finished.connect(lambda: setattr(self, '_current_thread', None))
+
         self._current_thread = thread
         self._current_worker = worker
         thread.start()
+    
 
     # ---------- CSVインポート / テンプレ出力 ----------
     def _import_csv_signals(self):
         path, _ = QFileDialog.getOpenFileName(self, 'signals.csv を選択', '', 'CSV Files (*.csv)')
         if not path:
+            return
+
+        # 同時起動をガード
+        if getattr(self, "_current_worker", None):
+            QMessageBox.warning(self, "実行中", "処理中の取り込みが完了するまでお待ちください。")
             return
         try:
             db_path = self._ensure_repo_db_path()
@@ -360,6 +402,11 @@ class MainWindow(QMainWindow):
         worker = ImportCSVWorker(db_path=db_path, csv_path=path, mode='signals')
         worker.moveToThread(thread)
         thread.started.connect(worker.run)
+
+        # 後始末
+        thread.finished.connect(worker.deleteLater)
+        thread.finished.connect(thread.deleteLater)
+
         self._connect_common_worker_signals(worker, thread, title='CSV取り込み中（信号）', label='signals.csv を読み込んでいます…')
 
         def _csv_finished(n: int):
@@ -368,7 +415,13 @@ class MainWindow(QMainWindow):
             else:
                 QMessageBox.information(self, 'CSVインポート', f'信号 {n} 件を取り込みました。')
             self.search_component.refresh()
+            # 参照解除
+            self._current_worker = None
+            self._current_thread = None
         worker.finished.connect(_csv_finished)
+
+        thread.finished.connect(lambda: setattr(self, '_current_worker', None))
+        thread.finished.connect(lambda: setattr(self, '_current_thread', None))
 
         self._current_thread = thread
         self._current_worker = worker
@@ -378,6 +431,12 @@ class MainWindow(QMainWindow):
         path, _ = QFileDialog.getOpenFileName(self, 'box_connections.csv を選択', '', 'CSV Files (*.csv)')
         if not path:
             return
+        
+        # ★ 同時起動ガード
+        if getattr(self, "_current_worker", None):
+            QMessageBox.warning(self, "実行中", "処理中の取り込みが完了するまでお待ちください。")
+            return
+
         try:
             db_path = self._ensure_repo_db_path()
         except Exception as e:
@@ -388,6 +447,11 @@ class MainWindow(QMainWindow):
         worker = ImportCSVWorker(db_path=db_path, csv_path=path, mode='box')
         worker.moveToThread(thread)
         thread.started.connect(worker.run)
+
+        # ★ 後始末
+        thread.finished.connect(worker.deleteLater)
+        thread.finished.connect(thread.deleteLater)
+
         self._connect_common_worker_signals(worker, thread, title='CSV取り込み中（BOX配線）', label='box_connections.csv を読み込んでいます…')
 
         def _box_finished(n: int):
@@ -395,7 +459,13 @@ class MainWindow(QMainWindow):
                 QMessageBox.warning(self, 'CSVインポート', '取り込めるレコードがありませんでした。')
             else:
                 QMessageBox.information(self, 'CSVインポート', f'BOX配線 {n} 件を取り込みました。')
+        # ★ 参照解除（BOXは検索再描画なしでOKという現仕様のまま）
+            self._current_worker = None
+            self._current_thread = None
         worker.finished.connect(_box_finished)
+
+        thread.finished.connect(lambda: setattr(self, '_current_worker', None))
+        thread.finished.connect(lambda: setattr(self, '_current_thread', None))
 
         self._current_thread = thread
         self._current_worker = worker

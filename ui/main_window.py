@@ -244,7 +244,7 @@ class MainWindow(QMainWindow):
         worker.error.connect(self._on_worker_error)
         worker.canceled.connect(lambda: self.statusBar().showMessage('キャンセルされました'))
         worker.ask_confirm.connect(self._on_worker_confirm)
-        # 終了時: ダイアログを閉じてスレッドを畳む
+        # 終了時: ダイアログを閉じてスレッドを畳む。thread.quitが呼ばれるとスレッドを削除する（deleteLaterが動く）
         worker.finished.connect(lambda *args: self._close_progress())
         worker.error.connect(lambda *_: self._close_progress())
         worker.canceled.connect(lambda: self._close_progress())
@@ -345,13 +345,14 @@ class MainWindow(QMainWindow):
         except Exception as e:
             QMessageBox.critical(self, 'エラー', str(e))
             return
-
+        #スレッドを作成し、ワーカーを所属させる。スレッドの起動準備
         thread = QThread(self)
         worker = ImportPDFWorker(db_path=db_path, pdf_path=path)
         worker.moveToThread(thread)
+        #スレッドがスタートしたらワーカーのrun起動する
         thread.started.connect(worker.run)
 
-    # ★ 後始末（Qtに管理させる）
+    # ワーカーが終了したらワーカーとスレッドを破棄してメモリを軽くする
         thread.finished.connect(worker.deleteLater)
         thread.finished.connect(thread.deleteLater)
 
@@ -368,15 +369,16 @@ class MainWindow(QMainWindow):
             else:
                 QMessageBox.warning(self, 'PDFインポート', '取り込めるデータが見つかりませんでした。')
             self.search_component.refresh()
-        # ★ 参照を解除（同時起動ガードの解除）
+        # ★ UIの完了通知後に、ここでも参照を解除（同時起動ガードの解除）
             self._current_worker = None
             self._current_thread = None
         worker.finished.connect(_pdf_finished)
 
-    # ★ スレッド完全終了時にも保険で解除
+    # ★ スレッド完全終了時にワーカーとスレッドを元に戻す。インポート中ならNoneになるので二重起動にならない
         thread.finished.connect(lambda: setattr(self, '_current_worker', None))
         thread.finished.connect(lambda: setattr(self, '_current_thread', None))
 
+        #ここがインポートのスタート地点。ここからワーカーを走らせる
         self._current_thread = thread
         self._current_worker = worker
         thread.start()
@@ -388,7 +390,7 @@ class MainWindow(QMainWindow):
         if not path:
             return
 
-        # 同時起動をガード
+        # 同時起動をガード。他のスレッドが動いていないか確認（動いていなければNoneが返ってくる）
         if getattr(self, "_current_worker", None):
             QMessageBox.warning(self, "実行中", "処理中の取り込みが完了するまでお待ちください。")
             return
@@ -403,12 +405,12 @@ class MainWindow(QMainWindow):
         worker.moveToThread(thread)
         thread.started.connect(worker.run)
 
-        # 後始末
+        # finishが呼ばれたらスレッドを安全な位置で破棄
         thread.finished.connect(worker.deleteLater)
         thread.finished.connect(thread.deleteLater)
 
         self._connect_common_worker_signals(worker, thread, title='CSV取り込み中（信号）', label='signals.csv を読み込んでいます…')
-
+        #取り込み中に起きた軽微なエラーを報告
         def _csv_finished(n: int):
             if n == 0:
                 QMessageBox.warning(self, 'CSVインポート', '取り込めるレコードがありませんでした。')
@@ -419,10 +421,10 @@ class MainWindow(QMainWindow):
             self._current_worker = None
             self._current_thread = None
         worker.finished.connect(_csv_finished)
-
+        #スレッドとワーカーをNoneに戻す
         thread.finished.connect(lambda: setattr(self, '_current_worker', None))
         thread.finished.connect(lambda: setattr(self, '_current_thread', None))
-
+        #インポートの発火地点
         self._current_thread = thread
         self._current_worker = worker
         thread.start()

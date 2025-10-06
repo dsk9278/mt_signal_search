@@ -38,6 +38,7 @@ from typing import Optional, List
 import os
 import datetime
 import traceback
+import logging
 
 from PyQt5.QtCore import QObject, QThread, pyqtSignal, pyqtSlot, QEventLoop
 
@@ -87,6 +88,7 @@ class ImportCSVWorker(QObject):
         self._cancel = False
         self._decision: Optional[bool] = None  # ユーザー回答
         self._warnings: List[str] = []
+        self._log = logging.getLogger(f"mt_signal.import.{self.__class__.__name__}")
 
     # ---- UIからキャンセル/回答を受け取るスロット ----
     @pyqtSlot()
@@ -147,6 +149,7 @@ class ImportCSVWorker(QObject):
     def run(self):
         self.started.emit()
         try:
+            self._log.info("CSV import start: path=%s mode=%s", self.csv_path, self.mode)
             repo = SQLiteSignalRepository(self.db_path)
             imported = 0
             try:
@@ -177,13 +180,16 @@ class ImportCSVWorker(QObject):
                 pass
 
             if self._warnings:
+                self._log.warning("CSV import warnings: count=%d", len(self._warnings))
                 log_path = self._write_warnings_log("csv", self._warnings)
                 self.report.emit(f"警告 {len(self._warnings)} 件（詳細はログ参照）", log_path)
-
+            self._log.info("CSV import done: imported=%d", imported)
             self.finished.emit(int(imported))
 
         except Exception:
+            self._log_exception("CSV import failed")
             self.error.emit(traceback.format_exc())
+
 
 
 # ------------------------------------------------------------
@@ -205,6 +211,7 @@ class ImportPDFWorker(QObject):
         self._cancel = False
         self._decision: Optional[bool] = None
         self._warnings: List[str] = []
+        self._log = logging.getLogger(f"mt_signal.import.{self.__class__. __name__}")
 
     @pyqtSlot()
     def cancel(self):
@@ -247,6 +254,7 @@ class ImportPDFWorker(QObject):
     def run(self):
         self.started.emit()
         try:
+            self._log.info("PDF import start: path=%s", self.pdf_path)
             repo = SQLiteSignalRepository(self.db_path)
 
             # 1) 信号式の抽出
@@ -310,10 +318,13 @@ class ImportPDFWorker(QObject):
 
             # warnings をまとめてログ
             if self._warnings:
+                self._log.warning("PDF import warnings: count=%d", len(self._warnings))
                 log_path = self._write_warnings_log("pdf", self._warnings)
                 self.report.emit(f"警告 {len(self._warnings)} 件（詳細はログ参照）", log_path)
 
+            self._log.info("PDF import done: signals=%d box_conns=%d", sig_count,box_count)
             self.finished.emit(int(sig_count), int(box_count))
 
         except Exception:
+            self._log.exception("PDF import failed")
             self.error.emit(traceback.format_exc())

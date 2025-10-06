@@ -12,21 +12,21 @@ from mt_signal_search.services.services import (
 from mt_signal_search.ui.main_window import MainWindow
 
 def _setup_logging():
-    """アプリ共通のロガーを初期化する処理。 ~/mt_signal_search/logs/app.log にINFO以上をローテーション保存"""
+    """アプリ共通のロガーを初期化する処理。 ~/.mt_signal_search/logs/app.log にINFO以上をローテーション保存"""
     log_dir = Path.home() / ".mt_signal_search" / "logs"
-    log_dir.mkdir(parents=True, exist_ok= True)
+    log_dir.mkdir(parents=True, exist_ok=True)
     log_path = log_dir / "app.log"
 
     root = logging.getLogger()
     #すでに　RotatingFileHandlerがついている場合は二重設定しない。
     #アプリを開いてロガーが初期されるたびに同じログが重複して記録していくのを防ぐ。同じログが記録されるのを防ぐ役割
-    if any(isinstance(h, RotatingFileHandler)for h in root.handlers):
+    if any(isinstance(h, RotatingFileHandler) for h in root.handlers):
         return
     
     root.setLevel(logging.INFO)
     fmt = logging.Formatter(
-        f"%(asctime)s [%(levelname)s] %(name)s - %(message)s",
-        datefmt = "%Y-%m-%d %H:%M:%S",
+        "%(asctime)s [%(levelname)s] %(name)s - %(message)s",
+        datefmt="%Y-%m-%d %H:%M:%S",
     )
     fh = RotatingFileHandler(str(log_path), maxBytes=2_000_000, backupCount=10, encoding="utf-8")
     fh.setFormatter(fmt)

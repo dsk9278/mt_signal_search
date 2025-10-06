@@ -62,7 +62,7 @@ def _now_tag() -> str:
 
 
 def _ensure_log_dir() -> str:
-    log_dir = os.path.join(os.path.expanduser("~"), "mt_signal_logs")
+    log_dir = os.path.join(os.path.expanduser("~"), ".mt_signal_search/logs")
     os.makedirs(log_dir, exist_ok=True)
     return log_dir
 
@@ -168,6 +168,7 @@ class ImportCSVWorker(QObject):
                     raise
 
             if self._cancel:
+                self._log.info("CSV import canceled by user")
                 self.canceled.emit()
                 return
 
@@ -211,7 +212,7 @@ class ImportPDFWorker(QObject):
         self._cancel = False
         self._decision: Optional[bool] = None
         self._warnings: List[str] = []
-        self._log = logging.getLogger(f"mt_signal.import.{self.__class__. __name__}")
+        self._log = logging.getLogger(f"mt_signal.import.{self.__class__.__name__}")
 
     @pyqtSlot()
     def cancel(self):
@@ -272,6 +273,7 @@ class ImportPDFWorker(QObject):
             # DB保存（キャンセル可能）
             for s in signals:
                 if self._cancel:
+                    self._log.info("PDF import canceled by user")
                     self.canceled.emit()
                     return
                 try:

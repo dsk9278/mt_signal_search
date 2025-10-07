@@ -24,6 +24,7 @@ UI には依存しない純粋な I/O レイヤ。例外は上位で拾いやす
 
 import csv
 import unicodedata
+import logging
 from typing import Optional, Callable, Tuple, List
 
 from mt_signal_search.domain.models import SignalInfo, SignalType, BoxConnection
@@ -91,6 +92,7 @@ class CSVSignalImporter:
         self.repo = repo
         # 行単位の軽微エラーを蓄積して、最後にワーカーがログ化するためのバッファ
         self.warnings: List[str] = []
+        self._log = logging.getLogger("mt_signal.importer.csv")
 
     def import_file(self, path: str, progress_cb: ProgressCB = None, cancel_cb: CancelCB = None) -> int:
         # 手順:
@@ -107,18 +109,21 @@ class CSVSignalImporter:
         #  5) 終了時に最終進捗を通知
         count = 0
         self.warnings.clear()
+        self._log.info("CSVSignalImporter start: %s", path)
         # --- ファイルオープン & ヘッダ検証（ここで失敗したら致命的エラーとして上げる）
         try:
             with open(path, newline="", encoding="utf-8-sig") as f:
                 reader = csv.DictReader(f)  # 辞書形式でCSVデータを一行ずつ読み込む
                 required = {"signal_id","signal_type","description","from_box","via_boxes","to_box","program_address","logic_group","logic_expr"}
                 if not reader.fieldnames or not required.issubset(set(reader.fieldnames)):
+                    self._log.error("CSV header missing required columns. got=%s required=%s", reader.fieldnames, sorted(list(required)))
                     raise RuntimeError("CSV列名がテンプレートと一致しません。テンプレートを確認してください。")
 
                 # --- 行ループ開始（ここからは1レコードずつ安全に処理し、軽微な問題は warnings へ）
                 for i, row in enumerate(reader, 1):
                     # キャンセルが指示されたら安全に中断
                     if cancel_cb and cancel_cb():
+                        self._log.info("CSV import canceled by user at row %d", i)
                         break  # キャンセルされたらループを抜ける
 
                     # 入力正規化：
@@ -130,6 +135,7 @@ class CSVSignalImporter:
                     desc = _norm(row.get("description")) or "(CSV取り込み)"
 
                     if not sid:
+                        self._log.warning("Row %d skipped: empty signal_id", i)
                         self.warnings.append(f"{i}行目: signal_id が空のためスキップ")
                         continue
 
@@ -144,6 +150,7 @@ class CSVSignalImporter:
 
                     # logic_expr は必須。空は登録しない（後でユーザーが把握できるよう warnings に記録）
                     if not expr:
+                        self._log.warning("Row %d skipped: empty logic_expr (required)", i)
                         self.warnings.append(f"{i}行目: logic_expr が空（必須）")
                         continue
 
@@ -161,6 +168,7 @@ class CSVSignalImporter:
                     try:
                         self.repo.add_signal(info)
                     except Exception as e:
+                        self._log.warning("Row %d add_signal failed: %s", i, e)
                         self.warnings.append(f"{i}行目: add_signal 失敗: {e}")
                         continue
 
@@ -171,6 +179,7 @@ class CSVSignalImporter:
                         except TypeError:
                             self.repo.add_logic_equation(sid, expr, source_label=path)
                     except Exception as e:
+                        self._log.warning("Row %d add_logic_equation failed: %s", i, e)
                         self.warnings.append(f"{i}行目: add_logic_equation 失敗: {e}")
                         continue
 
@@ -180,15 +189,19 @@ class CSVSignalImporter:
                         progress_cb(i)
         # --- ここから致命的エラー（ファイルそのもの/エンコーディング/CSV構造）を RuntimeError に変換
         except FileNotFoundError:
+            self._log.exception("CSV file not found: %s", path)
             raise RuntimeError(f"CSVファイルが見つかりません: {path}")
         except UnicodeDecodeError:
+            self._log.exception("CSV decode error (expect UTF-8): %s", path)
             raise RuntimeError("CSVの文字コードをUTF-8にしてください（BOM付UTF-8推奨）")
         except csv.Error as e:
+            self._log.exception("CSV parse error: %s", e)
             raise RuntimeError(f"CSV解析エラー: {e}")
 
         # 最終的な処理件数を通知
         if progress_cb:
             progress_cb(count)
+        self._log.info("CSVSignalImporter done: imported=%d warnings=%d", count, len(self.warnings))
         return count
 
 
@@ -206,6 +219,7 @@ class CSVBoxConnImporter:
         self.repo = repo
         # 行単位の軽微エラーを蓄積して、最後にワーカーがログ化するためのバッファ
         self.warnings: List[str] = []
+        self._log = logging.getLogger("mt_signal.importer.csv")
 
     def import_file(self, path: str, progress_cb: ProgressCB = None, cancel_cb: CancelCB = None) -> int:
         # 手順:
@@ -216,6 +230,7 @@ class CSVBoxConnImporter:
         #  5) 致命的エラーは except 節で RuntimeError にして上げる
         count = 0
         self.warnings.clear()
+        self._log.info("CSVBoxConnImporter start: %s", path)
         # --- ファイルオープン & ヘッダ検証
         try:
             with open(path, newline="", encoding="utf-8-sig") as f:
@@ -223,12 +238,14 @@ class CSVBoxConnImporter:
                 # 必須列（テンプレに合わせる）
                 required = {"from_box_name","from_box_no","kabel_no","to_box_no","to_box_name"}
                 if not reader.fieldnames or not required.issubset(set(reader.fieldnames)):
+                    self._log.error("BOX CSV header missing required columns. got=%s required=%s", reader.fieldnames, sorted(list(required)))
                     raise RuntimeError("BOX配線CSVの列名がテンプレートと一致しません。")
 
                 # --- 行ループ開始
                 for i, row in enumerate(reader, 1):
                     # キャンセルが指示されたら安全に中断
                     if cancel_cb and cancel_cb():
+                        self._log.info("BOX CSV import canceled by user at row %d", i)
                         break
 
                     # 入力正規化：番号系は _norm_id、名称系は _norm
@@ -240,6 +257,7 @@ class CSVBoxConnImporter:
 
                     # 主要列が全滅ならスキップ
                     if not any([from_box_name, from_box_no, kabel_no, to_box_no, to_box_name]):
+                        self._log.warning("BOX row %d skipped: all major columns empty", i)
                         self.warnings.append(f"{i}行目: 主要列が空のためスキップ")
                         continue
 
@@ -261,6 +279,7 @@ class CSVBoxConnImporter:
                         try:
                             self.repo.add_box_connection(from_box_name, from_box_no, kabel_no, to_box_no, to_box_name)
                         except Exception as e2:
+                            self._log.warning("BOX row %d add_box_connection failed: %s", i, e or e2)
                             self.warnings.append(f"{i}行目: add_box_connection 失敗: {e or e2}")
                             continue
 
@@ -270,13 +289,17 @@ class CSVBoxConnImporter:
                         progress_cb(i)
         # --- ここから致命的エラーを RuntimeError に変換
         except FileNotFoundError:
+            self._log.exception("BOX CSV file not found: %s", path)
             raise RuntimeError(f"CSVファイルが見つかりません: {path}")
         except UnicodeDecodeError:
+            self._log.exception("BOX CSV decode error (expect UTF-8): %s", path)
             raise RuntimeError("CSVの文字コードをUTF-8にしてください（BOM付UTF-8推奨）")
         except csv.Error as e:
+            self._log.exception("BOX CSV parse error: %s", e)
             raise RuntimeError(f"CSV解析エラー: {e}")
 
         # 最終的な処理件数を通知
         if progress_cb:
             progress_cb(count)
+        self._log.info("CSVBoxConnImporter done: imported=%d warnings=%d", count, len(self.warnings))
         return count

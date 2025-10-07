@@ -1,4 +1,6 @@
 from typing import List, Dict, Optional, Callable
+import logging
+
 from mt_signal_search.domain.models import SignalInfo, SignalType, BoxConnection
 
 ProgressCB = Optional[Callable[[int], None]]
@@ -56,19 +58,23 @@ class SimplePDFProcessor(PDFProcessor):
     def __init__(self):
         self.logic_blocks: Dict[str, str] = {}
         self.warnings: List[str] = []
+        self._log = logging.getLogger("mt_signal.importer.pdf")
 
     def process(self, file_path: str, progress_cb: ProgressCB = None, cancel_cb: CancelCB = None) -> List[SignalInfo]: 
+        self._log.info("PDF parse start: %s", file_path)
         #UI側に処理がどこまで終わったか、ユーザーがキャンセルボタンを押したか知らせる
         try:
             from pdf2image import convert_from_path 
             import pytesseract, re
         except Exception:
+            logging.getLogger("mt_signal.importer.pdf").exception("OCR modules not available")
             raise RuntimeError('OCRモジュール未導入です。"pip install pdf2image pillow pytesseract" と Tesseract を導入してください。') # クリティカルなエラー表示
 
         pages = convert_from_path(file_path, dpi=300)
         texts = []
         for i, pg in enumerate(pages): # ページごとにOCR実行、キャンセル・進捗チェック
             if cancel_cb and cancel_cb(): # キャンセルをチェック
+                self._log.info("PDF parse canceled by user at page %d", i + 1)
                 break
             texts.append(pytesseract.image_to_string(pg,lang='jpn+eng'))
             if progress_cb: # 進捗をUI側に知らせる。　これでプログレスバーを更新するデータ
@@ -95,6 +101,7 @@ class SimplePDFProcessor(PDFProcessor):
                 expr = _norm_ops(" ".join(x.strip() for x in buf if x.strip()))
                 if expr:
                     if paren_balance != 0:
+                        self._log.warning("%s: paren imbalance suspected: '%s'", current_q, expr[:60])
                         #括弧不一致で警告としてログを蓄積（軽微なもの）
                         self.warnings.append(f"{current_q}: 括弧がうまく読み取れていない可能性: '{expr[:60]}...'")
                     self.logic_blocks[current_q] = expr
@@ -167,21 +174,28 @@ class SimplePDFProcessor(PDFProcessor):
                         continue
 
         flush()
+        self._log.info("PDF parse done: signals=%d warnings=%d", len(signals), len(self.warnings))
         return signals #返り値は抽出できたSignal Infoのリスト　式はself.logic_blocks[sid]に格納
 
 class BoxPDFProcessor(PDFProcessor):
     """BOX間配線一覧の簡易パーサ（表OCR）"""
+    def __init__(self):
+        self._log = logging.getLogger("mt_signal.importer.pdf")
+
     def process(self, file_path: str, progress_cb: ProgressCB = None, cancel_cb: CancelCB = None):
+        self._log.info("BOX PDF parse start: %s", file_path)
         try:
             from pdf2image import convert_from_path
             import pytesseract, re
         except Exception:
+            logging.getLogger("mt_signal.importer.pdf").exception("OCR modules not available for BOX parser")
             raise RuntimeError('OCRモジュール未導入です。"pip install pdf2image pillow pytesseract" と Tesseract を導入してください。')
 
         pages = convert_from_path(file_path, dpi=300)
         texts = []
         for i, pg in enumerate(pages):
             if cancel_cb and cancel_cb():
+                self._log.info("BOX PDF parse canceled by user at page %d", i + 1)
                 break
             texts.append(pytesseract.image_to_string(pg, lang='jpn+eng'))
             if progress_cb:
@@ -205,4 +219,5 @@ class BoxPDFProcessor(PDFProcessor):
             if any(h in n1 for h in ['Box名称','KABEL','KABELNo','見出し']):
                 continue
             conns.append(BoxConnection(n1, b1, kab, b2, n2))
+        self._log.info("BOX PDF parse done: conns=%d", len(conns))
         return conns

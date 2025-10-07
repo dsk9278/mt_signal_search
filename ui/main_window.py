@@ -75,6 +75,7 @@ class MainWindow(QMainWindow):
         file_menu.addAction('テンプレCSV出力（BOX配線）', self._export_template_box)
         file_menu.addAction('データエクスポート', self._export_data)
         file_menu.addSeparator()
+        file_menu.addAction('ログを開く', self._open_app_log)
         file_menu.addAction('終了', self.close)
 
     # 画面左上からのマージンで歯車とメニューを配置
@@ -496,3 +497,19 @@ class MainWindow(QMainWindow):
         path, _ = file_dialog.getSaveFileName(self, "データをエクスポート", "", "JSON Files (*.json)")
         if path:
             QMessageBox.information(self, "エクスポート完了", f"データを '{path}' にエクスポートしました。")
+
+#-------------ログファイルの作成処理-------------
+    def _open_app_log(self): 
+        """アプリ全体ログ（~/.mt_signal_search/logs/app.log)をOS既定アプリで開く"""
+        from pathlib import Path
+        try:
+            log_path = Path.home() / ".mt_signal_search" / "logs" / "app.log"
+            if not log_path.exists():
+                QMessageBox.information(
+                    self, "ログ",
+                    "まだログファイルが作成されていません。\(n(CSV/PDFの取り込みを一度実行すると作成されます。)"
+                    )
+                return
+            QDesktopServices.openUrl(QUrl.fromLocalFile(str(log_path)))
+        except Exception as e:
+            QMessageBox.critical(self, "エラー", f"ログを開けませんでした: {e}")

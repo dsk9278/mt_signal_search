@@ -101,7 +101,7 @@ class ImportCSVWorker(QObject):
         self._decision = bool(ok)
         try:
             # ここで loop.quit() を直接呼べないため、_confirm 内でポーリングせず
-            # ループ参照を閉じている（後述）。
+            # ループ参照を閉じている
             pass
         except Exception:
             pass
@@ -188,7 +188,7 @@ class ImportCSVWorker(QObject):
             self.finished.emit(int(imported))
 
         except Exception:
-            self._log_exception("CSV import failed")
+            self._log.exception("CSV import failed")
             self.error.emit(traceback.format_exc())
 
 

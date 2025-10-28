@@ -4,18 +4,31 @@ from PyQt5.QtGui import QFont
 import re
 from html import escape
 
-def display_with_overline(expr: str) -> str:
-    """条件式中の'!'で始まるトークンを打ち消し線付きで表示
+
+
+"""条件式中の'!'で始まるトークンを上線付きで表示
     安全の為に先にHTMLエスケープし、演算子（^,v）などはそのまま残す。
-    例: "!501^503" → 501のみ上線つきで表示
-    """
+    例: "!501^503" → 501のみ上線つきで表示"""
+
+def display_with_overline(expr: str) -> str:
     if not expr:
         return ""
     safe = escape(expr)
+
     def _repl(m):
+        full = m.group(0)
         token = m.group(1)
-        return f"<span style='text-decoration: overline;'>{token}</span>"
-    return re.sub(r"!(\w+)", _repl, safe)
+        has_open = '(' in full
+        has_close = ')' in full
+        replaced = f"<span style='text-decoration: overline;'>{token}</span>"
+        if has_open:
+            replaced = '(' + replaced
+        if has_close:
+            replaced = replaced + ')'
+        return replaced
+
+    return re.sub(r"!\s*\(?(QL\d{3}|Q\d{3}|X\d{3})\)?(?=[\s\^v,)]|$)", _repl, safe)
+
 
 class SearchComponent(QWidget):
     """検索（大タイトル + ピル型検索バー + 結果テーブル From/Via/To）"""
@@ -28,7 +41,7 @@ class SearchComponent(QWidget):
 
     def setup_ui(self) -> None:
         layout = QVBoxLayout()
-        layout.setContentsMargins(20,20,20,20)
+        layout.setContentsMargins(40,40,40,40)
 
         title = QLabel("入出力プログラム検索アプリ")
         f = QFont(); f.setPointSize(40); f.setBold(True); title.setFont(f)
@@ -36,7 +49,7 @@ class SearchComponent(QWidget):
 
         search_layout = QHBoxLayout()
         pill = QFrame(); pill.setStyleSheet('QFrame { background: #eee4f0; border-radius: 18px; }')
-        pill_l = QHBoxLayout(pill); pill_l.setContentsMargins(12,6,12,6)
+        pill_l = QHBoxLayout(pill); pill_l.setContentsMargins(24,12,24,12) #検索バー内のオブジェクトの配置
         menu_icon = QPushButton('≡'); menu_icon.setFixedSize(28,28)
         menu_icon.setStyleSheet('QPushButton { background: transparent; border: none; font-size:16px; }')
         self.search_input = QLineEdit(); self.search_input.setPlaceholderText("信号ID/説明/BOXを入力")
@@ -51,7 +64,7 @@ class SearchComponent(QWidget):
         rf = QFont(); rf.setPointSize(16); rf.setBold(True); self.results_label.setFont(rf)
 
         self.results_table = QTableWidget()
-        self.results_table.setMinimumHeight(100)
+        self.results_table.setMinimumHeight(300) #検索結果表示欄の縦サイズ
         self.results_table.setColumnCount(7)
         self.results_table.setHorizontalHeaderLabels(["信号ID","種別","説明","From","Via","To","条件式"])
         header = self.results_table.horizontalHeader()

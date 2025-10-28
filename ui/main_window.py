@@ -8,6 +8,7 @@
 from PyQt5.QtWidgets import (
     QMainWindow, QWidget, QVBoxLayout, QFileDialog, QMessageBox, QDialog, QFormLayout,
     QLineEdit, QComboBox, QHBoxLayout, QPushButton, QListWidget, QListWidgetItem, QLabel, QProgressDialog
+    ,QScrollArea, QSizePolicy
 )
 from PyQt5.QtGui import QFont, QDesktopServices
 from PyQt5.QtCore import QThread, QUrl
@@ -39,9 +40,13 @@ class MainWindow(QMainWindow):
         self.setGeometry(100, 100, 1400, 900)
         central = QWidget(); self.setCentralWidget(central)
         main_l = QVBoxLayout(); main_l.setSpacing(0); main_l.setContentsMargins(0,0,0,0)
+        scroll_area = QScrollArea(self)
+        scroll_area.setWidgetResizable(True)
 
+        #content = QWidget(scroll_area.setWidget(content))
         content = QWidget()
         content_l = QVBoxLayout(content); content_l.setContentsMargins(40,0,40,40)
+        scroll_area.setWidget(content)
 
         self.search_component = SearchComponent(self.search_service)
         self.logic_display = LogicDisplayComponent(self.favorites_service)
@@ -50,7 +55,9 @@ class MainWindow(QMainWindow):
         content_l.addWidget(self.logic_display)
         content.setStyleSheet("background-color: white;")
 
-        main_l.addWidget(content); central.setLayout(main_l)
+        #main_l.addWidget(content); central.setLayout(main_l)
+        main_l.addWidget(scroll_area)
+        central.setLayout(main_l)
 
         # 左上フローティングUI
         self.fab = FloatingGearButton(self)

@@ -1,5 +1,17 @@
-from PyQt5.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QLabel, QFrame, QPushButton, QLineEdit, QTableWidget, QTableWidgetItem,QHeaderView
-from PyQt5.QtCore import Qt
+from PyQt5.QtWidgets import (
+    QWidget,
+    QVBoxLayout,
+    QHBoxLayout,
+    QLabel,
+    QFrame,
+    QPushButton,
+    QLineEdit,
+    QTableWidget,
+    QTableWidgetItem,
+    QHeaderView,
+    QInputDialog,
+)
+from PyQt5.QtCore import Qt, pyqtSignal
 from PyQt5.QtGui import QFont
 import re
 from html import escape
@@ -32,10 +44,13 @@ def display_with_overline(expr: str) -> str:
 
 class SearchComponent(QWidget):
     """検索（大タイトル + ピル型検索バー + 結果テーブル From/Via/To）"""
+    signal_selected = pyqtSignal(int, object)
+
     def __init__(self, search_service, parent=None):
         super().__init__(parent)
         self._search_service = search_service
         self._last_keyword = "" #直近の検索キーワード
+        self._current_results = []
         self.setup_ui()
         self.connect_events()
 
@@ -86,6 +101,7 @@ class SearchComponent(QWidget):
         layout.addSpacing(20); layout.addWidget(self.results_label); layout.addWidget(self.results_table)
         self.setLayout(layout)
         self.search_button = search_btn
+        self.results_table.itemDoubleClicked.connect(self._handle_result_double_click)
 
     def connect_events(self) -> None:
         self.search_button.clicked.connect(self._perform_search)
@@ -107,6 +123,7 @@ class SearchComponent(QWidget):
         self._display_results(results)
 
     def _display_results(self, results) -> None:
+        self._current_results = list(results)
         self.results_table.setRowCount(len(results))
         for row, s in enumerate(results):
             self.results_table.setItem(row, 0, QTableWidgetItem(s.signal_id))
@@ -136,3 +153,23 @@ class SearchComponent(QWidget):
             if current_height < 60:
                 self.results_table.setRowHeight(row, 60)
         self.results_label.setText(f"検索結果リスト ({len(results)}件)")
+
+    def _handle_result_double_click(self, item) -> None:
+        if item is None:
+            return
+        row = item.row()
+        if row < 0 or row >= len(self._current_results):
+            return
+        signal = self._current_results[row]
+        slot_no, ok = QInputDialog.getInt(
+            self,
+            "ロジックボックスを選択",
+            "追加するボックス番号 (1〜3):",
+            1,
+            1,
+            3,
+            1,
+        )
+        if not ok:
+            return
+        self.signal_selected.emit(slot_no, signal)

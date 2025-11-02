@@ -49,6 +49,7 @@ class MainWindow(QMainWindow):
         scroll_area.setWidget(content)
 
         self.search_component = SearchComponent(self.search_service)
+        self.search_component.signal_selected.connect(self._handle_signal_selected)
         self.logic_display = LogicDisplayComponent(self.favorites_service)
 
         content_l.addWidget(self.search_component)
@@ -84,6 +85,12 @@ class MainWindow(QMainWindow):
         file_menu.addSeparator()
         file_menu.addAction('ログを開く', self._open_app_log)
         file_menu.addAction('終了', self.close)
+
+    def _handle_signal_selected(self, slot_no, signal):
+        try:
+            self.logic_display.add_signal(slot_no, signal)
+        except Exception as exc:
+            QMessageBox.critical(self, 'エラー', f'ロジックボックスへの追加に失敗しました: {exc}')
 
     # 画面左上からのマージンで歯車とメニューを配置
     def _place_fab(self):

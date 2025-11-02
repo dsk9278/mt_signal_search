@@ -47,10 +47,13 @@ class MainWindow(QMainWindow):
         content = QWidget()
         content_l = QVBoxLayout(content); content_l.setContentsMargins(40,0,40,40)
         scroll_area.setWidget(content)
-
+        #検索した後の結果を表示するところ
         self.search_component = SearchComponent(self.search_service)
+        
+        #下3段のグレーボックスの配置
         self.logic_display = LogicDisplayComponent(self.favorites_service)
-
+        
+        #接続部
         content_l.addWidget(self.search_component)
         content_l.addWidget(self.logic_display)
         content.setStyleSheet("background-color: white;")

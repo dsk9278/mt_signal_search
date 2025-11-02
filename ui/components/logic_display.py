@@ -19,21 +19,21 @@ class LogicDisplayComponent(QWidget):
     def _create_logic_widget(self, logic_name: str):
         w = QWidget()
         w.setStyleSheet("QWidget { background-color: #f5f5f5; border-radius: 8px; margin: 5px; }")
-        w.setMinimumHeight(120)
+        w.setMinimumHeight(400)
         lay = QVBoxLayout()
 
         head = QHBoxLayout()
         title = QLabel(logic_name)
         f = QFont(); f.setBold(True); title.setFont(f)
         star_btn = QPushButton("⭐")
-        star_btn.setFixedSize(30,30)
+        star_btn.setFixedSize(50,50)
         self._update_star(star_btn, logic_name)
         star_btn.clicked.connect(lambda: self._toggle_fav(logic_name, star_btn))
         head.addWidget(title); head.addStretch(); head.addWidget(star_btn)
         lay.addLayout(head)
 
         placeholder = QFrame()
-        placeholder.setMinimumHeight(160)
+        placeholder.setMinimumHeight(320)
         placeholder.setStyleSheet('background-color: #d9d9d9; border-radius: 6px;')
         lay.addWidget(placeholder)
 

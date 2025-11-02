@@ -11,6 +11,7 @@ from PyQt5.QtWidgets import (
     QScrollArea,
     QVBoxLayout,
     QWidget,
+    QSizePolicy
 )
 
 
@@ -37,7 +38,7 @@ class LogicDisplayComponent(QWidget):
         w.setStyleSheet(
             "QWidget { background-color: #f5f5f5; border-radius: 8px; margin: 5px; }"
         )
-        w.setMinimumHeight(120)
+        w.setMinimumHeight(400)
         lay = QVBoxLayout()
 
         head = QHBoxLayout()
@@ -46,7 +47,7 @@ class LogicDisplayComponent(QWidget):
         f.setBold(True)
         title.setFont(f)
         star_btn = QPushButton("⭐")
-        star_btn.setFixedSize(30, 30)
+        star_btn.setFixedSize(50, 50)
         self._update_star(star_btn, logic_name)
         star_btn.clicked.connect(lambda: self._toggle_fav(logic_name, star_btn))
         head.addWidget(title)
@@ -58,20 +59,23 @@ class LogicDisplayComponent(QWidget):
         scroll.setWidgetResizable(True)
         scroll.setFrameShape(QFrame.NoFrame)
         scroll.setStyleSheet('QScrollArea { border: none; }')
+        scroll.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+    
 
         container = QWidget()
         container.setStyleSheet('background-color: #d9d9d9; border-radius: 6px;')
+        container.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
         container_layout = QVBoxLayout(container)
         container_layout.setContentsMargins(12, 12, 12, 12)
         container_layout.setSpacing(8)
+
         scroll.setWidget(container)
 
-        lay.addWidget(scroll)
+        lay.addWidget(scroll,1)
 
         self._slot_layouts[slot_no] = container_layout
         self._refresh_slot(slot_no)
 
-        lay.addStretch()
         w.setLayout(lay)
         return w
 

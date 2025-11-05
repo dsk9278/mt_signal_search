@@ -1,4 +1,6 @@
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Tuple
+
+from html import escape
 
 from PyQt5.QtCore import Qt
 from PyQt5.QtGui import QFont
@@ -147,8 +149,12 @@ class LogicDisplayComponent(QWidget):
         row_layout.setContentsMargins(12, 8, 12, 8)
         row_layout.setSpacing(8)
 
-        label = QLabel(self._format_signal_text(signal))
+        label_text, text_format = self._format_signal_text(signal)
+        label = QLabel()
+        label.setTextFormat(text_format)
         label.setWordWrap(True)
+        label.setTextInteractionFlags(Qt.TextSelectableByMouse)
+        label.setText(label_text)
 
         remove_btn = QPushButton("✕")
         remove_btn.setFixedSize(28, 28)
@@ -194,9 +200,13 @@ class LogicDisplayComponent(QWidget):
             attrs["program_address"] = getattr(signal, "program_address")
         if hasattr(signal, "logic_group"):
             attrs["logic_group"] = getattr(signal, "logic_group")
+        if hasattr(signal, "logic_expr"):
+            attrs["logic_expr"] = getattr(signal, "logic_expr")
+        if hasattr(signal, "logic_expr_html"):
+            attrs["logic_expr_html"] = getattr(signal, "logic_expr_html")
         return attrs
 
-    def _format_signal_text(self, signal: Dict[str, Any]) -> str:
+    def _format_signal_text(self, signal: Dict[str, Any]) -> Tuple[str, Qt.TextFormat]:
         signal_id = signal.get("signal_id") or "(不明)"
         signal_type = signal.get("signal_type")
         if hasattr(signal_type, "value"):
@@ -225,4 +235,27 @@ class LogicDisplayComponent(QWidget):
         if location_parts:
             parts.append(" | ".join(location_parts))
 
-        return " - ".join(parts)
+        base_text = " - ".join(parts)
+
+        logic_expr_html = signal.get("logic_expr_html") or ""
+        logic_expr_plain = signal.get("logic_expr") or ""
+
+        base_html = escape(base_text)
+        if logic_expr_html:
+            condition_html = logic_expr_html
+            suffix = (
+                "<br><span style='font-weight: bold;'>条件式:</span> "
+                f"<span style='white-space: pre-wrap;'>{condition_html}</span>"
+            )
+            return base_html + suffix, Qt.RichText
+
+        if logic_expr_plain:
+            condition_html = escape(logic_expr_plain)
+            suffix = (
+                "<br><span style='font-weight: bold;'>条件式:</span> "
+                f"<span style='white-space: pre-wrap;'>{condition_html}</span>"
+            )
+            return base_html + suffix, Qt.RichText
+
+        suffix = "<br><span style='color: #999999;'>条件式なし</span>"
+        return base_html + suffix, Qt.RichText

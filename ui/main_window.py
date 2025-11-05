@@ -5,6 +5,8 @@
 #  - 進捗は QProgressDialog、完了後は検索結果を再描画する
 # -----------------------------------------------------------------------------
 
+from dataclasses import asdict, is_dataclass
+
 from PyQt5.QtWidgets import (
     QMainWindow, QWidget, QVBoxLayout, QFileDialog, QMessageBox, QDialog, QFormLayout,
     QLineEdit, QComboBox, QHBoxLayout, QPushButton, QListWidget, QListWidgetItem, QLabel, QProgressDialog
@@ -20,6 +22,7 @@ from mt_signal_search.ui.components.floating_menu import FloatingMenu
 from mt_signal_search.ui.components.gear_button import FloatingGearButton
 from mt_signal_search.ui.dialogs.edit_signal_dialog import EditSignalDialog
 from mt_signal_search.ui.async_workers import ImportCSVWorker, ImportPDFWorker
+from mt_signal_search.ui.utils.formatters import display_with_overline
 import csv
 
 # 画面本体。メニューや各ボタンの動作、検索→ロジック表示、取込ワーカーの起動を担当。
@@ -88,9 +91,45 @@ class MainWindow(QMainWindow):
 
     def _handle_signal_selected(self, slot_no, signal):
         try:
-            self.logic_display.add_signal(slot_no, signal)
+            signal_id = self._extract_signal_id(signal)
+            logic_expr = ""
+            if signal_id:
+                try:
+                    logic_expr = self.search_service.get_logic_expr(signal_id) or ""
+                except Exception:
+                    logic_expr = ""
+            logic_expr_html = display_with_overline(logic_expr) if logic_expr else ""
+            enriched_signal = self._enrich_signal(signal, logic_expr=logic_expr, logic_expr_html=logic_expr_html)
+            self.logic_display.add_signal(slot_no, enriched_signal)
         except Exception as exc:
             QMessageBox.critical(self, 'エラー', f'ロジックボックスへの追加に失敗しました: {exc}')
+
+    def _extract_signal_id(self, signal) -> str:
+        if isinstance(signal, dict):
+            return signal.get('signal_id', '')
+        return getattr(signal, 'signal_id', '')
+
+    def _enrich_signal(self, signal, **extras):
+        if isinstance(signal, dict):
+            base = dict(signal)
+        elif is_dataclass(signal):
+            base = asdict(signal)
+        else:
+            base = {
+                'signal_id': getattr(signal, 'signal_id', ''),
+                'signal_type': getattr(signal, 'signal_type', ''),
+                'description': getattr(signal, 'description', ''),
+                'from_box': getattr(signal, 'from_box', ''),
+                'via_boxes': getattr(signal, 'via_boxes', ()),
+                'to_box': getattr(signal, 'to_box', ''),
+            }
+            if hasattr(signal, 'program_address'):
+                base['program_address'] = getattr(signal, 'program_address')
+            if hasattr(signal, 'logic_group'):
+                base['logic_group'] = getattr(signal, 'logic_group')
+
+        base.update(extras)
+        return base
 
     # 画面左上からのマージンで歯車とメニューを配置
     def _place_fab(self):

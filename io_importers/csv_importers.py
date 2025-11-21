@@ -23,11 +23,11 @@ UI には依存しない純粋な I/O レイヤ。例外は上位で拾いやす
 #   『続行/中止』ダイアログに接続される）。
 
 import csv
-import unicodedata
 import logging
-from typing import Optional, Callable, Tuple, List
+import unicodedata
+from typing import Callable, List, Optional, Tuple
 
-from mt_signal_search.domain.models import SignalInfo, SignalType, BoxConnection
+from mt_signal_search.domain.models import BoxConnection, SignalInfo, SignalType
 from mt_signal_search.repositories.base import SignalRepository
 
 # progress/cancel は UI 非依存の関数参照を受け取る。
@@ -175,7 +175,8 @@ class CSVSignalImporter:
                     grp = _norm(row.get("logic_group"))
                     expr = _norm_expr(row.get("logic_expr"))
 
-                    # logic_expr は必須。空は登録しない（後でユーザーが把握できるよう warnings に記録）
+                    # logic_expr は必須。空は登録しない
+                    # （後でユーザーが把握できるよう、warnings に記録）
                     if not expr:
                         self._log.warning("Row %d skipped: empty logic_expr (required)", i)
                         self.warnings.append(f"{i}行目: logic_expr が空（必須）")
@@ -214,7 +215,8 @@ class CSVSignalImporter:
                     count += 1
                     if progress_cb and i % 50 == 0:
                         progress_cb(i)
-        # --- ここから致命的エラー（ファイルそのもの/エンコーディング/CSV構造）を RuntimeError に変換
+        # --- ここから致命的エラー（ファイルそのもの/エンコーディング/CSV構造）を
+        # RuntimeError に変換
         except FileNotFoundError:
             self._log.exception("CSV file not found: %s", path)
             raise RuntimeError(f"CSVファイルが見つかりません: {path}")
@@ -295,7 +297,8 @@ class CSVBoxConnImporter:
                         self.warnings.append(f"{i}行目: 主要列が空のためスキップ")
                         continue
 
-                    # 実装差異に耐える二段構え（BoxConnection オブジェクト優先 / 引数バラ渡しにフォールバック）
+                    # 実装差異に耐える二段構え
+                    # （BoxConnection オブジェクト優先 / 引数バラ渡しにフォールバック）
                     try:
                         if BoxConnection is not None:
                             bc = BoxConnection(

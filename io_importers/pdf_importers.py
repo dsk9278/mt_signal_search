@@ -1,7 +1,7 @@
-from typing import List, Dict, Optional, Callable
 import logging
+from typing import Callable, Dict, List, Optional
 
-from mt_signal_search.domain.models import SignalInfo, SignalType, BoxConnection
+from mt_signal_search.domain.models import BoxConnection, SignalInfo, SignalType
 
 ProgressCB = Optional[Callable[[int], None]]
 CancelCB = Optional[Callable[[], bool]]
@@ -73,9 +73,10 @@ class SimplePDFProcessor(PDFProcessor):
         self._log.info("PDF parse start: %s", file_path)
         # UI側に処理がどこまで終わったか、ユーザーがキャンセルボタンを押したか知らせる
         try:
-            from pdf2image import convert_from_path
-            import pytesseract
             import re
+
+            import pytesseract
+            from pdf2image import convert_from_path
         except Exception:
             logging.getLogger("mt_signal.importer.pdf").exception("OCR modules not available")
             raise RuntimeError(
@@ -252,9 +253,10 @@ class BoxPDFProcessor(PDFProcessor):
     def process(self, file_path: str, progress_cb: ProgressCB = None, cancel_cb: CancelCB = None):
         self._log.info("BOX PDF parse start: %s", file_path)
         try:
-            from pdf2image import convert_from_path
-            import pytesseract
             import re
+
+            import pytesseract
+            from pdf2image import convert_from_path
         except Exception:
             logging.getLogger("mt_signal.importer.pdf").exception(
                 "OCR modules not available for BOX parser"

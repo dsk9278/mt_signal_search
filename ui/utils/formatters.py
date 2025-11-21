@@ -26,4 +26,3 @@ def display_with_overline(expr: str) -> str:
 
     pattern = r"!\s*\(?(QL\d{3}|Q\d{3}|X\d{3})\)?(?=[\s\^v,)]|$)"
     return re.sub(pattern, _repl, safe)
-

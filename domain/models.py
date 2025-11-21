@@ -2,10 +2,12 @@ from dataclasses import dataclass
 from enum import Enum
 from typing import Tuple
 
+
 class SignalType(Enum):
     INPUT = "INPUT"
     OUTPUT = "OUTPUT"
     INTERNAL = "INTERNAL"
+
 
 @dataclass(frozen=True)
 class SignalInfo:
@@ -23,6 +25,7 @@ class SignalInfo:
             raise ValueError("信号IDは必須です")
         if not self.description:
             raise ValueError("説明は必須です")
+
 
 @dataclass
 class BoxConnection:

@@ -1,18 +1,18 @@
-from PyQt5.QtWidgets import (
-    QFrame, QVBoxLayout, QPushButton, QWidget, QScrollArea, QSizePolicy
-)
+from PyQt5.QtWidgets import QFrame, QVBoxLayout, QPushButton, QWidget, QScrollArea, QSizePolicy
 from PyQt5.QtCore import Qt
+
 
 class FloatingMenu(QFrame):
     """左上に表示されるシンプルなメニュー。ボタン押下の処理は MainWindow 側で接続する。"""
+
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setFrameShape(QFrame.NoFrame)
-        self.setStyleSheet('''
+        self.setStyleSheet("""
             QFrame { background: white; border: 1px solid #ddd; border-radius: 8px; }
             QPushButton { border: none; padding: 16px 22px; text-align: left; font-size: 16px; }
             QPushButton:hover { background: #f5f5f5; }
-        ''')
+        """)
         self.setVisible(False)
 
         outer = QVBoxLayout(self)
@@ -29,9 +29,9 @@ class FloatingMenu(QFrame):
         layout.setSpacing(8)
 
         # Buttons
-        self.btn_edit = QPushButton('編集')
-        self.btn_save = QPushButton('保存')
-        self.btn_fav  = QPushButton('お気に入り')
+        self.btn_edit = QPushButton("編集")
+        self.btn_save = QPushButton("保存")
+        self.btn_fav = QPushButton("お気に入り")
 
         for _b in (self.btn_edit, self.btn_save, self.btn_fav):
             _b.setMinimumHeight(52)

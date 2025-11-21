@@ -7,9 +7,12 @@ from PyQt5.QtGui import QFont
 from mt_signal_search.repositories.sqlite_impl import SQLiteSignalRepository
 from mt_signal_search.repositories.favorites_json import JsonFavoritesRepository
 from mt_signal_search.services.services import (
-    SignalSearchService, FavoritesService, LogicManagementService
+    SignalSearchService,
+    FavoritesService,
+    LogicManagementService,
 )
 from mt_signal_search.ui.main_window import MainWindow
+
 
 def _setup_logging():
     """アプリ共通のロガーを初期化する処理。 ~/.mt_signal_search/logs/app.log にINFO以上をローテーション保存"""
@@ -18,11 +21,11 @@ def _setup_logging():
     log_path = log_dir / "app.log"
 
     root = logging.getLogger()
-    #すでに　RotatingFileHandlerがついている場合は二重設定しない。
-    #アプリを開いてロガーが初期されるたびに同じログが重複して記録していくのを防ぐ。同じログが記録されるのを防ぐ役割
+    # すでに　RotatingFileHandlerがついている場合は二重設定しない。
+    # アプリを開いてロガーが初期されるたびに同じログが重複して記録していくのを防ぐ。同じログが記録されるのを防ぐ役割
     if any(isinstance(h, RotatingFileHandler) for h in root.handlers):
         return
-    
+
     root.setLevel(logging.INFO)
     fmt = logging.Formatter(
         "%(asctime)s [%(levelname)s] %(name)s - %(message)s",

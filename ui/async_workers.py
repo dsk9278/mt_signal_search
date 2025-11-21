@@ -40,7 +40,7 @@ import datetime
 import traceback
 import logging
 
-from PyQt5.QtCore import QObject, QThread, pyqtSignal, pyqtSlot, QEventLoop
+from PyQt5.QtCore import QObject, pyqtSignal, pyqtSlot, QEventLoop
 
 from mt_signal_search.repositories.sqlite_impl import SQLiteSignalRepository
 from mt_signal_search.io_importers.csv_importers import (
@@ -56,6 +56,7 @@ from mt_signal_search.io_importers.pdf_importers import (
 # ------------------------------------------------------------
 # 共通のヘルパー
 # ------------------------------------------------------------
+
 
 def _now_tag() -> str:
     return datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -74,9 +75,9 @@ class ImportCSVWorker(QObject):
     # UIへ通知するシグナル
     started = pyqtSignal()
     progress = pyqtSignal(int)
-    ask_confirm = pyqtSignal(str)   # UIでYes/Noを聞き、set_user_decision()で返す
-    report = pyqtSignal(str, str)   # (summary, log_path)
-    finished = pyqtSignal(int)      # インポート件数
+    ask_confirm = pyqtSignal(str)  # UIでYes/Noを聞き、set_user_decision()で返す
+    report = pyqtSignal(str, str)  # (summary, log_path)
+    finished = pyqtSignal(int)  # インポート件数
     error = pyqtSignal(str)
     canceled = pyqtSignal()
 
@@ -119,9 +120,11 @@ class ImportCSVWorker(QObject):
         # set_user_decision が呼ばれるまで待つ
         # QEventLoop を終了させるタイミングは、以下のtickで監視する
         from PyQt5.QtCore import QTimer
+
         def _tick():
             if self._decision is not None:
                 loop.quit()
+
         timer = QTimer()
         timer.timeout.connect(_tick)
         timer.start(50)
@@ -155,13 +158,19 @@ class ImportCSVWorker(QObject):
             try:
                 if self.mode == "signals":
                     importer = CSVSignalImporter(repo)
-                    imported = importer.import_file(self.csv_path, progress_cb=self._progress_cb, cancel_cb=self._cancel_cb)
+                    imported = importer.import_file(
+                        self.csv_path, progress_cb=self._progress_cb, cancel_cb=self._cancel_cb
+                    )
                 else:
                     importer = CSVBoxConnImporter(repo)
-                    imported = importer.import_file(self.csv_path, progress_cb=self._progress_cb, cancel_cb=self._cancel_cb)
+                    imported = importer.import_file(
+                        self.csv_path, progress_cb=self._progress_cb, cancel_cb=self._cancel_cb
+                    )
             except Exception as e:
                 # 致命的（ファイル壊れ/列不整合など）: ユーザーに続行(=スキップ)か中止かを確認、_confirmでユーザーの回答を待つ
-                if self._confirm(f"CSV取り込み中に致命的エラーが発生しました。\n{e}\n\nこのファイルをスキップして続行しますか？"):
+                if self._confirm(
+                    f"CSV取り込み中に致命的エラーが発生しました。\n{e}\n\nこのファイルをスキップして続行しますか？"
+                ):
                     self._warnings.append(str(e))
                     imported = 0
                 else:
@@ -190,7 +199,6 @@ class ImportCSVWorker(QObject):
         except Exception:
             self._log.exception("CSV import failed")
             self.error.emit(traceback.format_exc())
-
 
 
 # ------------------------------------------------------------
@@ -227,9 +235,11 @@ class ImportPDFWorker(QObject):
         self.ask_confirm.emit(message)
         loop = QEventLoop()
         from PyQt5.QtCore import QTimer
+
         def _tick():
             if self._decision is not None:
                 loop.quit()
+
         timer = QTimer()
         timer.timeout.connect(_tick)
         timer.start(50)
@@ -262,9 +272,13 @@ class ImportPDFWorker(QObject):
             sig_count = 0
             processor = SimplePDFProcessor()
             try:
-                signals = processor.process(self.pdf_path, progress_cb=self._progress_cb, cancel_cb=self._cancel_cb)
+                signals = processor.process(
+                    self.pdf_path, progress_cb=self._progress_cb, cancel_cb=self._cancel_cb
+                )
             except Exception as e:
-                if self._confirm(f"PDF取り込み中に致命的エラーが発生しました。\n{e}\n\nこのファイルをスキップして続行しますか？"):
+                if self._confirm(
+                    f"PDF取り込み中に致命的エラーが発生しました。\n{e}\n\nこのファイルをスキップして続行しますか？"
+                ):
                     self._warnings.append(str(e))
                     signals = []
                 else:
@@ -286,7 +300,9 @@ class ImportPDFWorker(QObject):
                 try:
                     # 出所ラベルにPDFパスを残す
                     try:
-                        repo.add_logic_equation(sid, raw, source_label=self.pdf_path, source_page=None)
+                        repo.add_logic_equation(
+                            sid, raw, source_label=self.pdf_path, source_page=None
+                        )
                     except TypeError:
                         repo.add_logic_equation(sid, raw, source_label=self.pdf_path)
                 except Exception as ee:
@@ -297,9 +313,13 @@ class ImportPDFWorker(QObject):
             try:
                 box_proc = BoxPDFProcessor()
                 try:
-                    conns = box_proc.process(self.pdf_path, progress_cb=self._progress_cb, cancel_cb=self._cancel_cb)
+                    conns = box_proc.process(
+                        self.pdf_path, progress_cb=self._progress_cb, cancel_cb=self._cancel_cb
+                    )
                 except Exception as e2:
-                    if self._confirm(f"BOX配線の抽出で致命的エラーが発生しました。\n{e2}\n\nBOX配線の抽出をスキップして続行しますか？"):
+                    if self._confirm(
+                        f"BOX配線の抽出で致命的エラーが発生しました。\n{e2}\n\nBOX配線の抽出をスキップして続行しますか？"
+                    ):
                         self._warnings.append(f"BOX抽出失敗: {e2}")
                         conns = []
                     else:
@@ -324,7 +344,7 @@ class ImportPDFWorker(QObject):
                 log_path = self._write_warnings_log("pdf", self._warnings)
                 self.report.emit(f"警告 {len(self._warnings)} 件（詳細はログ参照）", log_path)
 
-            self._log.info("PDF import done: signals=%d box_conns=%d", sig_count,box_count)
+            self._log.info("PDF import done: signals=%d box_conns=%d", sig_count, box_count)
             self.finished.emit(int(sig_count), int(box_count))
 
         except Exception:

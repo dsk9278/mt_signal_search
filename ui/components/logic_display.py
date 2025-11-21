@@ -13,7 +13,7 @@ from PyQt5.QtWidgets import (
     QScrollArea,
     QVBoxLayout,
     QWidget,
-    QSizePolicy
+    QSizePolicy,
 )
 
 
@@ -37,9 +37,7 @@ class LogicDisplayComponent(QWidget):
 
     def _create_logic_widget(self, slot_no: int, logic_name: str) -> QWidget:
         w = QWidget()
-        w.setStyleSheet(
-            "QWidget { background-color: #f5f5f5; border-radius: 8px; margin: 5px; }"
-        )
+        w.setStyleSheet("QWidget { background-color: #f5f5f5; border-radius: 8px; margin: 5px; }")
         w.setMinimumHeight(400)
         lay = QVBoxLayout()
 
@@ -60,12 +58,11 @@ class LogicDisplayComponent(QWidget):
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)
         scroll.setFrameShape(QFrame.NoFrame)
-        scroll.setStyleSheet('QScrollArea { border: none; }')
+        scroll.setStyleSheet("QScrollArea { border: none; }")
         scroll.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
-    
 
         container = QWidget()
-        container.setStyleSheet('background-color: #d9d9d9; border-radius: 6px;')
+        container.setStyleSheet("background-color: #d9d9d9; border-radius: 6px;")
         container.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
         container_layout = QVBoxLayout(container)
         container_layout.setContentsMargins(12, 12, 12, 12)
@@ -73,7 +70,7 @@ class LogicDisplayComponent(QWidget):
 
         scroll.setWidget(container)
 
-        lay.addWidget(scroll,1)
+        lay.addWidget(scroll, 1)
 
         self._slot_layouts[slot_no] = container_layout
         self._refresh_slot(slot_no)

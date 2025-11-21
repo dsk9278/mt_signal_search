@@ -2,7 +2,8 @@ from abc import ABC, abstractmethod
 from typing import List, Optional
 from mt_signal_search.domain.models import SignalInfo, BoxConnection
 
-#ここを通してデータベースに要求を出す
+
+# ここを通してデータベースに要求を出す
 class SignalRepository(ABC):
     @abstractmethod
     def add_signal(self, signal: SignalInfo) -> None: ...
@@ -15,13 +16,20 @@ class SignalRepository(ABC):
     @abstractmethod
     def get_all_logic_groups(self) -> List[str]: ...
     @abstractmethod
-    def add_logic_equation(self, target_signal_id: str, raw_expr: str, source_label: str = "", source_page: int | None = None) -> None: ...
+    def add_logic_equation(
+        self,
+        target_signal_id: str,
+        raw_expr: str,
+        source_label: str = "",
+        source_page: int | None = None,
+    ) -> None: ...
     @abstractmethod
     def get_logic_expr(self, target_signal_id: str) -> str | None: ...
     @abstractmethod
     def get_source_label(self, target_signal_id: str) -> str | None: ...
     @abstractmethod
     def add_box_connection(self, conn: BoxConnection) -> None: ...
+
 
 class FavoritesRepository(ABC):
     @abstractmethod

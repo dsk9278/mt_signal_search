@@ -1,37 +1,53 @@
 from PyQt5.QtWidgets import (
-    QDialog, QFormLayout, QLineEdit, QComboBox, QHBoxLayout,
-    QPushButton, QMessageBox
+    QDialog,
+    QFormLayout,
+    QLineEdit,
+    QComboBox,
+    QHBoxLayout,
+    QPushButton,
+    QMessageBox,
 )
 from mt_signal_search.domain.models import SignalInfo, SignalType
 
+
 class EditSignalDialog(QDialog):
     """信号全項目(条件式を含む)を編集・追加するためのダイアログ
-     floating_menu の「編集」ボタンからMainWindow経由で起動
-     既存選択があれば値をプリセット、新規なら空フォーム"""
-    def __init__ (self, parent = None, existing: SignalInfo = None, logic_expr: str = ''):
+    floating_menu の「編集」ボタンからMainWindow経由で起動
+    既存選択があれば値をプリセット、新規なら空フォーム"""
+
+    def __init__(self, parent=None, existing: SignalInfo = None, logic_expr: str = ""):
         super().__init__(parent)
-        self.setWindowTitle('信号の編集/追加')
+        self.setWindowTitle("信号の編集/追加")
         self.setMinimumWidth(520)
 
         form = QFormLayout(self)
 
         # ------------フィールド------------
         self.id_edit = QLineEdit()
-        self.id_edit.setPlaceholderText('例: Q101')
+        self.id_edit.setPlaceholderText("例: Q101")
 
         self.type_combo = QComboBox()
-        self.type_combo.addItems([
-            SignalType.INPUT.value,
-            SignalType.OUTPUT.value,
-            SignalType.INTERNAL.value,
-        ])
-        self.desc_edit = QLineEdit(); self.desc_edit.setPlaceholderText("説明（必須）")
-        self.from_edit = QLineEdit(); self.from_edit.setPlaceholderText("例: BOX3")
-        self.via_edit = QLineEdit(); self.via_edit.setPlaceholderText("カンマ区切り（例：BOX5,BOX6）")
-        self.to_edit = QLineEdit(); self.to_edit.setPlaceholderText("例: BOX7")
-        self.addr_edit = QLineEdit(); self.addr_edit.setPlaceholderText("例: Q101(未入力なら信号IDを使用)")
-        self.group_edit = QLineEdit(); self.group_edit.setPlaceholderText("例: ロジック2")
-        self.logic_edit = QLineEdit(); self.logic_edit.setPlaceholderText("例: !500 ^ 503 v 507")
+        self.type_combo.addItems(
+            [
+                SignalType.INPUT.value,
+                SignalType.OUTPUT.value,
+                SignalType.INTERNAL.value,
+            ]
+        )
+        self.desc_edit = QLineEdit()
+        self.desc_edit.setPlaceholderText("説明（必須）")
+        self.from_edit = QLineEdit()
+        self.from_edit.setPlaceholderText("例: BOX3")
+        self.via_edit = QLineEdit()
+        self.via_edit.setPlaceholderText("カンマ区切り（例：BOX5,BOX6）")
+        self.to_edit = QLineEdit()
+        self.to_edit.setPlaceholderText("例: BOX7")
+        self.addr_edit = QLineEdit()
+        self.addr_edit.setPlaceholderText("例: Q101(未入力なら信号IDを使用)")
+        self.group_edit = QLineEdit()
+        self.group_edit.setPlaceholderText("例: ロジック2")
+        self.logic_edit = QLineEdit()
+        self.logic_edit.setPlaceholderText("例: !500 ^ 503 v 507")
 
         form.addRow("信号ID", self.id_edit)
         form.addRow("種別", self.type_combo)
@@ -56,7 +72,7 @@ class EditSignalDialog(QDialog):
             self.desc_edit.setText(existing.description or " ")
             self.from_edit.setText(existing.from_box or " ")
             self.via_edit.setText(
-                ",".join(existing.via_boxes) if getattr(existing, 'via_boxes', None) else " "
+                ",".join(existing.via_boxes) if getattr(existing, "via_boxes", None) else " "
             )
             self.to_edit.setText(existing.to_box or " ")
             self.addr_edit.setText(existing.program_address or existing.signal_id)
@@ -95,4 +111,4 @@ class EditSignalDialog(QDialog):
             "program_address": self.addr_edit.text().strip(),
             "logic_group": self.group_edit.text().strip(),
             "logic_expr": self.logic_edit.text().strip(),
-            }
+        }

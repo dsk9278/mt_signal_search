@@ -33,8 +33,13 @@ from mt_signal_search.repositories.base import SignalRepository
 # progress/cancel は UI 非依存の関数参照を受け取る。
 #   progress_cb: 処理の進み具合（読み込んだ行数など）を UI に伝えるためのコールバック
 #   cancel_cb  : ユーザーがキャンセルを押したかどうかをワーカー経由で確認する関数
-ProgressCB = Optional[Callable[[int], None]] #csv読み込み中に今何行まで処理をしたかを表示するためのやつ
-CancelCB = Optional[Callable[[], bool]] #csv読み込みのループ中にキャンセルボタンが押されたかかをチェックするやつ
+ProgressCB = Optional[
+    Callable[[int], None]
+]  # csv読み込み中に今何行まで処理をしたかを表示するためのやつ
+CancelCB = Optional[
+    Callable[[], bool]
+]  # csv読み込みのループ中にキャンセルボタンが押されたかかをチェックするやつ
+
 
 # 文字列正規化ユーティリティ
 # - _norm     : NFKC（全角→半角など）+ 前後空白除去
@@ -46,25 +51,27 @@ def _norm(s: Optional[str]) -> str:
         return ""
     return unicodedata.normalize("NFKC", s).strip()
 
+
 def _norm_id(s: Optional[str]) -> str:
     """ID系は NFKC + upper まで行う"""
     return _norm(s).upper()
+
 
 def _norm_expr(s: Optional[str]) -> str:
     """論理式の表記ゆれを正規化（NFKC → 演算子統一 → 余分空白圧縮）"""
     t = _norm(s)
     # 論理演算子のゆれ
-    t = (t.replace("∨", "v").replace("Ｖ", "v").replace("V", "v"))
+    t = t.replace("∨", "v").replace("Ｖ", "v").replace("V", "v")
     # XOR/AND など帽子記号のゆれ
     t = t.replace("＾", "^")
     # ダッシュ類はエムダッシュに統一
-    t = (t.replace("−", "—").replace("–", "—").replace("―", "—")
-           .replace("ー", "—").replace("-", "—"))
+    t = t.replace("−", "—").replace("–", "—").replace("―", "—").replace("ー", "—").replace("-", "—")
     # プラスのゆれ
     t = t.replace("＋", "+")
     # 余分な空白を1つに
     t = " ".join(t.split())
     return t
+
 
 # 経由BOX列のパース
 # CSVでは "BOX1,BOX2" のようなカンマ区切りで届く想定。
@@ -76,25 +83,29 @@ def _parse_via_boxes(value: str) -> Tuple[str, ...]:
     parts = [_norm(p) for p in value.split(",")]
     return tuple([p for p in parts if p])
 
+
 class CSVSignalImporter:
     """signals.csv を読み込んで signals / logic_equations に投入する。
 
-期待する列（テンプレ）：
-  signal_id, signal_type, description, from_box, via_boxes,
-  to_box, program_address, logic_group, logic_expr
+    期待する列（テンプレ）：
+      signal_id, signal_type, description, from_box, via_boxes,
+      to_box, program_address, logic_group, logic_expr
 
-設計ポリシー：
-- logic_expr は必須（空はスキップし warnings に残す）
-- 軽微エラーは self.warnings に蓄積、致命的エラーは RuntimeError にして上位へ
-- 正規化（NFKC/大文字化/演算子ゆれ吸収）を通して DB/検索の揺れを抑える
-"""
+    設計ポリシー：
+    - logic_expr は必須（空はスキップし warnings に残す）
+    - 軽微エラーは self.warnings に蓄積、致命的エラーは RuntimeError にして上位へ
+    - 正規化（NFKC/大文字化/演算子ゆれ吸収）を通して DB/検索の揺れを抑える
+    """
+
     def __init__(self, repo: SignalRepository):
         self.repo = repo
         # 行単位の軽微エラーを蓄積して、最後にワーカーがログ化するためのバッファ
         self.warnings: List[str] = []
         self._log = logging.getLogger("mt_signal.importer.csv")
 
-    def import_file(self, path: str, progress_cb: ProgressCB = None, cancel_cb: CancelCB = None) -> int:
+    def import_file(
+        self, path: str, progress_cb: ProgressCB = None, cancel_cb: CancelCB = None
+    ) -> int:
         # 手順:
         #  1) CSV を開く（BOM付UTF-8 も許容）
         #  2) ヘッダ検証（テンプレ列がすべて存在するか）
@@ -114,10 +125,26 @@ class CSVSignalImporter:
         try:
             with open(path, newline="", encoding="utf-8-sig") as f:
                 reader = csv.DictReader(f)  # 辞書形式でCSVデータを一行ずつ読み込む
-                required = {"signal_id","signal_type","description","from_box","via_boxes","to_box","program_address","logic_group","logic_expr"}
+                required = {
+                    "signal_id",
+                    "signal_type",
+                    "description",
+                    "from_box",
+                    "via_boxes",
+                    "to_box",
+                    "program_address",
+                    "logic_group",
+                    "logic_expr",
+                }
                 if not reader.fieldnames or not required.issubset(set(reader.fieldnames)):
-                    self._log.error("CSV header missing required columns. got=%s required=%s", reader.fieldnames, sorted(list(required)))
-                    raise RuntimeError("CSV列名がテンプレートと一致しません。テンプレートを確認してください。")
+                    self._log.error(
+                        "CSV header missing required columns. got=%s required=%s",
+                        reader.fieldnames,
+                        sorted(list(required)),
+                    )
+                    raise RuntimeError(
+                        "CSV列名がテンプレートと一致しません。テンプレートを確認してください。"
+                    )
 
                 # --- 行ループ開始（ここからは1レコードずつ安全に処理し、軽微な問題は warnings へ）
                 for i, row in enumerate(reader, 1):
@@ -144,7 +171,7 @@ class CSVSignalImporter:
                     # via の各要素も大文字に揃える
                     via_boxes = tuple(_norm_id(v) for v in via_boxes)
                     to_box = _norm_id(row.get("to_box"))
-                    addr  = _norm_id(row.get("program_address") or sid)
+                    addr = _norm_id(row.get("program_address") or sid)
                     grp = _norm(row.get("logic_group"))
                     expr = _norm_expr(row.get("logic_expr"))
 
@@ -160,9 +187,7 @@ class CSVSignalImporter:
                     except Exception:
                         st_enum = SignalType.INTERNAL
 
-                    info = SignalInfo(
-                        sid, st_enum, desc, from_box, via_boxes, to_box, addr, grp
-                    )
+                    info = SignalInfo(sid, st_enum, desc, from_box, via_boxes, to_box, addr, grp)
 
                     # UPSERT想定：既存があれば置換する実装を許容
                     try:
@@ -175,7 +200,9 @@ class CSVSignalImporter:
                     # 条件式を保存。ソース（出所）として CSV のパスを残す
                     try:
                         try:
-                            self.repo.add_logic_equation(sid, expr, source_label=path, source_page=None)
+                            self.repo.add_logic_equation(
+                                sid, expr, source_label=path, source_page=None
+                            )
                         except TypeError:
                             self.repo.add_logic_equation(sid, expr, source_label=path)
                     except Exception as e:
@@ -208,20 +235,23 @@ class CSVSignalImporter:
 class CSVBoxConnImporter:
     """BOX間配線CSVの取り込み（テンプレ準拠）
 
-期待する列（テンプレ）：
-  from_box_name, from_box_no, kabel_no, to_box_no, to_box_name
+    期待する列（テンプレ）：
+      from_box_name, from_box_no, kabel_no, to_box_no, to_box_name
 
-設計ポリシー：
-- 軽微エラーは self.warnings に蓄積、致命的エラーは RuntimeError で上位へ
-- ID系（番号/ケーブルNo）は _norm_id で正規化、名称系は _norm
-"""
+    設計ポリシー：
+    - 軽微エラーは self.warnings に蓄積、致命的エラーは RuntimeError で上位へ
+    - ID系（番号/ケーブルNo）は _norm_id で正規化、名称系は _norm
+    """
+
     def __init__(self, repo: SignalRepository):
         self.repo = repo
         # 行単位の軽微エラーを蓄積して、最後にワーカーがログ化するためのバッファ
         self.warnings: List[str] = []
         self._log = logging.getLogger("mt_signal.importer.csv")
 
-    def import_file(self, path: str, progress_cb: ProgressCB = None, cancel_cb: CancelCB = None) -> int:
+    def import_file(
+        self, path: str, progress_cb: ProgressCB = None, cancel_cb: CancelCB = None
+    ) -> int:
         # 手順:
         #  1) ファイルを開く & ヘッダ検証
         #  2) 各行をループしキャンセル可
@@ -236,9 +266,13 @@ class CSVBoxConnImporter:
             with open(path, newline="", encoding="utf-8-sig") as f:
                 reader = csv.DictReader(f)
                 # 必須列（テンプレに合わせる）
-                required = {"from_box_name","from_box_no","kabel_no","to_box_no","to_box_name"}
+                required = {"from_box_name", "from_box_no", "kabel_no", "to_box_no", "to_box_name"}
                 if not reader.fieldnames or not required.issubset(set(reader.fieldnames)):
-                    self._log.error("BOX CSV header missing required columns. got=%s required=%s", reader.fieldnames, sorted(list(required)))
+                    self._log.error(
+                        "BOX CSV header missing required columns. got=%s required=%s",
+                        reader.fieldnames,
+                        sorted(list(required)),
+                    )
                     raise RuntimeError("BOX配線CSVの列名がテンプレートと一致しません。")
 
                 # --- 行ループ開始
@@ -250,10 +284,10 @@ class CSVBoxConnImporter:
 
                     # 入力正規化：番号系は _norm_id、名称系は _norm
                     from_box_name = _norm(row.get("from_box_name"))
-                    from_box_no   = _norm_id(row.get("from_box_no"))
-                    kabel_no      = _norm_id(row.get("kabel_no"))
-                    to_box_no     = _norm_id(row.get("to_box_no"))
-                    to_box_name   = _norm(row.get("to_box_name"))
+                    from_box_no = _norm_id(row.get("from_box_no"))
+                    kabel_no = _norm_id(row.get("kabel_no"))
+                    to_box_no = _norm_id(row.get("to_box_no"))
+                    to_box_name = _norm(row.get("to_box_name"))
 
                     # 主要列が全滅ならスキップ
                     if not any([from_box_name, from_box_no, kabel_no, to_box_no, to_box_name]):
@@ -277,9 +311,13 @@ class CSVBoxConnImporter:
                     except Exception as e:
                         # 引数バラ渡しの実装にフォールバック or 失敗時は warnings
                         try:
-                            self.repo.add_box_connection(from_box_name, from_box_no, kabel_no, to_box_no, to_box_name)
+                            self.repo.add_box_connection(
+                                from_box_name, from_box_no, kabel_no, to_box_no, to_box_name
+                            )
                         except Exception as e2:
-                            self._log.warning("BOX row %d add_box_connection failed: %s", i, e or e2)
+                            self._log.warning(
+                                "BOX row %d add_box_connection failed: %s", i, e or e2
+                            )
                             self.warnings.append(f"{i}行目: add_box_connection 失敗: {e or e2}")
                             continue
 
@@ -301,5 +339,7 @@ class CSVBoxConnImporter:
         # 最終的な処理件数を通知
         if progress_cb:
             progress_cb(count)
-        self._log.info("CSVBoxConnImporter done: imported=%d warnings=%d", count, len(self.warnings))
+        self._log.info(
+            "CSVBoxConnImporter done: imported=%d warnings=%d", count, len(self.warnings)
+        )
         return count

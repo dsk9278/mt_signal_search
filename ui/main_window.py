@@ -5,36 +5,37 @@
 #  - 進捗は QProgressDialog、完了後は検索結果を再描画する
 # -----------------------------------------------------------------------------
 
+import csv
 from dataclasses import asdict, is_dataclass
 
+from PyQt5.QtCore import QThread, QUrl
+from PyQt5.QtGui import QDesktopServices
 from PyQt5.QtWidgets import (
-    QMainWindow,
-    QWidget,
-    QVBoxLayout,
-    QFileDialog,
-    QMessageBox,
-    QDialog,
-    QFormLayout,
-    QLineEdit,
     QComboBox,
+    QDialog,
+    QFileDialog,
+    QFormLayout,
     QHBoxLayout,
-    QPushButton,
+    QLineEdit,
     QListWidget,
     QListWidgetItem,
+    QMainWindow,
+    QMessageBox,
     QProgressDialog,
+    QPushButton,
     QScrollArea,
+    QVBoxLayout,
+    QWidget,
 )
-from PyQt5.QtGui import QDesktopServices
-from PyQt5.QtCore import QThread, QUrl
+
 from mt_signal_search.domain.models import SignalInfo, SignalType
-from mt_signal_search.ui.components.search_component import SearchComponent
-from mt_signal_search.ui.components.logic_display import LogicDisplayComponent
+from mt_signal_search.ui.async_workers import ImportCSVWorker, ImportPDFWorker
 from mt_signal_search.ui.components.floating_menu import FloatingMenu
 from mt_signal_search.ui.components.gear_button import FloatingGearButton
+from mt_signal_search.ui.components.logic_display import LogicDisplayComponent
+from mt_signal_search.ui.components.search_component import SearchComponent
 from mt_signal_search.ui.dialogs.edit_signal_dialog import EditSignalDialog
-from mt_signal_search.ui.async_workers import ImportCSVWorker, ImportPDFWorker
 from mt_signal_search.ui.utils.formatters import display_with_overline
-import csv
 
 
 # 画面本体。メニューや各ボタンの動作、検索→ロジック表示、取込ワーカーの起動を担当。
@@ -116,9 +117,7 @@ class MainWindow(QMainWindow):
                 except Exception:
                     logic_expr = ""
             logic_expr_html = display_with_overline(logic_expr) if logic_expr else ""
-            enriched_signal = self._enrich_signal(
-                signal, logic_expr=logic_expr, logic_expr_html=logic_expr_html
-            )
+            enriched_signal = self._enrich_signal(signal, logic_expr=logic_expr, logic_expr_html=logic_expr_html)
             self.logic_display.add_signal(slot_no, enriched_signal)
         except Exception as exc:
             QMessageBox.critical(self, "エラー", f"ロジックボックスへの追加に失敗しました: {exc}")
@@ -175,9 +174,7 @@ class MainWindow(QMainWindow):
 
         id_edit = QLineEdit()
         type_combo = QComboBox()
-        type_combo.addItems(
-            [SignalType.INPUT.value, SignalType.OUTPUT.value, SignalType.INTERNAL.value]
-        )
+        type_combo.addItems([SignalType.INPUT.value, SignalType.OUTPUT.value, SignalType.INTERNAL.value])
         desc_edit = QLineEdit()
         from_edit = QLineEdit()
         via_edit = QLineEdit()
@@ -319,9 +316,7 @@ class MainWindow(QMainWindow):
         return db_path
         # ※ repo はUIスレッドに属するため、ワーカーはスレッド内で別のSQLite接続を開く
 
-    def _connect_common_worker_signals(
-        self, worker, thread, *, title="取り込み中", label="処理中…"
-    ):
+    def _connect_common_worker_signals(self, worker, thread, *, title="取り込み中", label="処理中…"):
         # 開始時: 進捗ダイアログを開く
         worker.started.connect(lambda: self._open_progress(title, label, worker))
         # 進捗
@@ -351,7 +346,7 @@ class MainWindow(QMainWindow):
             box.setInformativeText(f"ログ: {log_path}")
             # QMessageBoxのボタンは　add Buttonで追加する
             open_btn = box.addButton("ログを開く", QMessageBox.ActionRole)
-        ok_btn = box.addButton(QMessageBox.Ok)
+        _ = box.addButton(QMessageBox.Ok)
         box.exec_()
 
         # ログを開くボタンが押されたら　OS 既定アプリで開く
@@ -367,9 +362,7 @@ class MainWindow(QMainWindow):
 
     def _on_worker_confirm(self, message: str):
         # Yes/No をユーザーに問い合わせ、回答を現在のワーカーへ返す
-        res = QMessageBox.question(
-            self, "確認", message, QMessageBox.Yes | QMessageBox.No, QMessageBox.No
-        )
+        res = QMessageBox.question(self, "確認", message, QMessageBox.Yes | QMessageBox.No, QMessageBox.No)
         try:
             worker = getattr(self, "_current_worker", None)
             if worker is not None:
@@ -445,9 +438,7 @@ class MainWindow(QMainWindow):
         thread.finished.connect(worker.deleteLater)
         thread.finished.connect(thread.deleteLater)
 
-        self._connect_common_worker_signals(
-            worker, thread, title="PDF取り込み中", label="PDF を解析しています…"
-        )
+        self._connect_common_worker_signals(worker, thread, title="PDF取り込み中", label="PDF を解析しています…")
 
         def _pdf_finished(sigs: int, boxes: int):
             parts = []
@@ -456,13 +447,9 @@ class MainWindow(QMainWindow):
             if boxes:
                 parts.append(f"BOX配線 {boxes} 件")
             if parts:
-                QMessageBox.information(
-                    self, "PDFインポート", " / ".join(parts) + " を取り込みました。"
-                )
+                QMessageBox.information(self, "PDFインポート", " / ".join(parts) + " を取り込みました。")
             else:
-                QMessageBox.warning(
-                    self, "PDFインポート", "取り込めるデータが見つかりませんでした。"
-                )
+                QMessageBox.warning(self, "PDFインポート", "取り込めるデータが見つかりませんでした。")
             self.search_component.refresh()
             # ★ UIの完了通知後に、ここでも参照を解除（同時起動ガードの解除）
             self._current_worker = None
@@ -504,9 +491,7 @@ class MainWindow(QMainWindow):
         thread.finished.connect(worker.deleteLater)
         thread.finished.connect(thread.deleteLater)
 
-        self._connect_common_worker_signals(
-            worker, thread, title="CSV取り込み中（信号）", label="signals.csv を読み込んでいます…"
-        )
+        self._connect_common_worker_signals(worker, thread, title="CSV取り込み中（信号）", label="signals.csv を読み込んでいます…")
 
         # 取り込み中に起きた軽微なエラーを報告
         def _csv_finished(n: int):
@@ -529,9 +514,7 @@ class MainWindow(QMainWindow):
         thread.start()
 
     def _import_csv_box(self):
-        path, _ = QFileDialog.getOpenFileName(
-            self, "box_connections.csv を選択", "", "CSV Files (*.csv)"
-        )
+        path, _ = QFileDialog.getOpenFileName(self, "box_connections.csv を選択", "", "CSV Files (*.csv)")
         if not path:
             return
 
@@ -581,9 +564,7 @@ class MainWindow(QMainWindow):
         thread.start()
 
     def _export_template_signals(self):
-        path, _ = QFileDialog.getSaveFileName(
-            self, "信号テンプレートCSVを保存", "", "CSV Files (*.csv)"
-        )
+        path, _ = QFileDialog.getSaveFileName(self, "信号テンプレートCSVを保存", "", "CSV Files (*.csv)")
         if not path:
             return
         headers = [
@@ -613,14 +594,10 @@ class MainWindow(QMainWindow):
                     "04E^351^383^3BD^((065^354)v038)",
                 ]
             )
-        QMessageBox.information(
-            self, "テンプレート出力", f"信号テンプレCSVを '{path}' に出力しました。"
-        )
+        QMessageBox.information(self, "テンプレート出力", f"信号テンプレCSVを '{path}' に出力しました。")
 
     def _export_template_box(self):
-        path, _ = QFileDialog.getSaveFileName(
-            self, "BOX配線テンプレートCSVを保存", "", "CSV Files (*.csv)"
-        )
+        path, _ = QFileDialog.getSaveFileName(self, "BOX配線テンプレートCSVを保存", "", "CSV Files (*.csv)")
         if not path:
             return
         headers = ["from_box_name", "from_box_no", "kabel_no", "to_box_no", "to_box_name"]
@@ -636,19 +613,13 @@ class MainWindow(QMainWindow):
                     "前部運転室：プログラムコントロールパネル",
                 ]
             )
-        QMessageBox.information(
-            self, "テンプレート出力", f"BOX配線テンプレCSVを '{path}' に出力しました。"
-        )
+        QMessageBox.information(self, "テンプレート出力", f"BOX配線テンプレCSVを '{path}' に出力しました。")
 
     def _export_data(self) -> None:
         file_dialog = QFileDialog(self)
-        path, _ = file_dialog.getSaveFileName(
-            self, "データをエクスポート", "", "JSON Files (*.json)"
-        )
+        path, _ = file_dialog.getSaveFileName(self, "データをエクスポート", "", "JSON Files (*.json)")
         if path:
-            QMessageBox.information(
-                self, "エクスポート完了", f"データを '{path}' にエクスポートしました。"
-            )
+            QMessageBox.information(self, "エクスポート完了", f"データを '{path}' にエクスポートしました。")
 
     # -------------ログファイルの作成処理-------------
     def _open_app_log(self):

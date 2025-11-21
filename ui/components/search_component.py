@@ -1,19 +1,20 @@
-from PyQt5.QtWidgets import (
-    QWidget,
-    QVBoxLayout,
-    QHBoxLayout,
-    QLabel,
-    QFrame,
-    QPushButton,
-    QLineEdit,
-    QTableWidget,
-    QTableWidgetItem,
-    QHeaderView,
-    QInputDialog,
-)
+from html import escape
+
 from PyQt5.QtCore import Qt, pyqtSignal
 from PyQt5.QtGui import QFont
-from html import escape
+from PyQt5.QtWidgets import (
+    QFrame,
+    QHBoxLayout,
+    QHeaderView,
+    QInputDialog,
+    QLabel,
+    QLineEdit,
+    QPushButton,
+    QTableWidget,
+    QTableWidgetItem,
+    QVBoxLayout,
+    QWidget,
+)
 
 from mt_signal_search.ui.utils.formatters import display_with_overline
 
@@ -49,20 +50,13 @@ class SearchComponent(QWidget):
         pill_l.setContentsMargins(24, 12, 24, 12)  # 検索バー内のオブジェクトの配置
         menu_icon = QPushButton("≡")
         menu_icon.setFixedSize(28, 28)
-        menu_icon.setStyleSheet(
-            "QPushButton { background: transparent; border: none; font-size:16px; }"
-        )
+        menu_icon.setStyleSheet("QPushButton { background: transparent; border: none; font-size:16px; }")
         self.search_input = QLineEdit()
         self.search_input.setPlaceholderText("信号ID/説明/BOXを入力")
-        self.search_input.setStyleSheet(
-            "QLineEdit { border: none; background: transparent; padding: 6px; font-size: 14px; }"
-        )
+        self.search_input.setStyleSheet("QLineEdit { border: none; background: transparent; padding: 6px; font-size: 14px; }")
         search_btn = QPushButton("🔍")
         search_btn.setFixedSize(32, 32)
-        search_btn.setStyleSheet(
-            "QPushButton { background: #7b57a8; color: white; border: none; border-radius: 16px; }"
-            "\nQPushButton:hover { background: #67439a; }"
-        )
+        search_btn.setStyleSheet("QPushButton { background: #7b57a8; color: white; border: none; border-radius: 16px; }\nQPushButton:hover { background: #67439a; }")
         pill_l.addWidget(menu_icon)
         pill_l.addWidget(self.search_input, 1)
         pill_l.addWidget(search_btn)
@@ -77,9 +71,7 @@ class SearchComponent(QWidget):
         self.results_table = QTableWidget()
         self.results_table.setMinimumHeight(300)  # 検索結果表示欄の縦サイズ
         self.results_table.setColumnCount(7)
-        self.results_table.setHorizontalHeaderLabels(
-            ["信号ID", "種別", "説明", "From", "Via", "To", "条件式"]
-        )
+        self.results_table.setHorizontalHeaderLabels(["信号ID", "種別", "説明", "From", "Via", "To", "条件式"])
         header = self.results_table.horizontalHeader()
         for i in range(6):
             header.setSectionResizeMode(i, QHeaderView.ResizeToContents)
@@ -138,11 +130,7 @@ class SearchComponent(QWidget):
             label = self._search_service.get_source_label(s.signal_id) or ""
             label_safe = escape(label)
             text_base = display_with_overline(expr)
-            text = (
-                f"{text_base}<br><span style= 'color: glay; font-size: 10px;'>(出所: {label_safe})</span>"
-                if label
-                else text_base
-            )
+            text = f"{text_base}<br><span style= 'color: glay; font-size: 10px;'>(出所: {label_safe})</span>" if label else text_base
             lab = QLabel(text)
             lab.setTextFormat(Qt.RichText)
             lab.setTextInteractionFlags(Qt.TextSelectableByMouse)
@@ -150,7 +138,7 @@ class SearchComponent(QWidget):
             self.results_table.setCellWidget(row, 6, lab)
         self.results_table.resizeRowsToContents()
         # 各行の高さが出所ラベルを収めるのに十分になるよう調整
-        vh = self.results_table.verticalHeader()
+        _ = self.results_table.verticalHeader()
         for row in range(self.results_table.rowCount()):
             current_height = self.results_table.rowHeight(row)
             if current_height < 60:
